@@ -33,7 +33,6 @@ def build_clean_presentation():
         return bg
 
     def add_clean_header(slide, title_text, subtitle_text):
-        # Clean Slide Title (No Slide Numbers at top)
         t_box = slide.shapes.add_textbox(Inches(1.0), Inches(0.65), Inches(11.333), Inches(0.65))
         tf_t = t_box.text_frame
         tf_t.word_wrap = True
@@ -43,7 +42,6 @@ def build_clean_presentation():
         p_t.font.bold = True
         p_t.font.color.rgb = TEXT_WHITE
 
-        # Subtitle in simple words
         s_box = slide.shapes.add_textbox(Inches(1.0), Inches(1.3), Inches(11.333), Inches(0.45))
         tf_s = s_box.text_frame
         tf_s.word_wrap = True
@@ -52,32 +50,27 @@ def build_clean_presentation():
         p_s.font.size = Pt(14)
         p_s.font.color.rgb = TEXT_MUTED
 
-        # Thin clean divider line
         line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(1.0), Inches(1.8), Inches(11.333), Inches(0.02))
         line.fill.solid()
         line.fill.fore_color.rgb = CARD_BORDER
         line.line.color.rgb = CARD_BORDER
 
     def add_grid_card(slide, left, top, width, height, side_heading, points, accent_color=ACCENT_CYAN):
-        # Card background box
         card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
         card.fill.solid()
         card.fill.fore_color.rgb = CARD_BG
         card.line.color.rgb = CARD_BORDER
         card.line.width = Pt(1.2)
 
-        # Left accent vertical indicator strip
         strip = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, Inches(0.08), height)
         strip.fill.solid()
         strip.fill.fore_color.rgb = accent_color
         strip.line.color.rgb = accent_color
 
-        # Text Frame
         tx_box = slide.shapes.add_textbox(left + Inches(0.25), top + Inches(0.18), width - Inches(0.45), height - Inches(0.3))
         tf = tx_box.text_frame
         tf.word_wrap = True
 
-        # Side Heading
         p_head = tf.paragraphs[0]
         p_head.text = side_heading
         p_head.font.size = Pt(17)
@@ -85,7 +78,6 @@ def build_clean_presentation():
         p_head.font.color.rgb = accent_color
         p_head.space_after = Pt(8)
 
-        # Content lines
         for pt in points:
             p = tf.add_paragraph()
             p.text = "• " + pt
@@ -104,7 +96,6 @@ def build_clean_presentation():
     if os.path.exists(logo_path):
         s1.shapes.add_picture(logo_path, Inches(1.0), Inches(0.7), height=Inches(0.95))
 
-    # Main Project Title
     t1 = s1.shapes.add_textbox(Inches(1.0), Inches(1.9), Inches(11.3), Inches(1.1))
     p1 = t1.text_frame.paragraphs[0]
     p1.text = "InsightX AI"
@@ -112,14 +103,12 @@ def build_clean_presentation():
     p1.font.bold = True
     p1.font.color.rgb = ACCENT_CYAN
 
-    # Subtitle
     sub1 = s1.shapes.add_textbox(Inches(1.0), Inches(2.95), Inches(11.3), Inches(0.6))
     psub1 = sub1.text_frame.paragraphs[0]
     psub1.text = "Autonomous AI Data Analyst & Decision Platform"
     psub1.font.size = Pt(22)
     psub1.font.color.rgb = TEXT_LIGHT
 
-    # Two Clean Bottom Cards
     add_grid_card(
         s1,
         left=Inches(1.0), top=Inches(3.9), width=Inches(5.4), height=Inches(2.8),
@@ -556,61 +545,124 @@ def build_clean_presentation():
     )
 
     # ==========================================
-    # SLIDE 9: Thank You (Conclusion & Q&A)
+    # SLIDE 9: Project Conclusion (Dedicated Slide)
     # ==========================================
     s9 = prs.slides.add_slide(blank_layout)
     set_background(s9)
+    add_clean_header(s9, "Project Conclusion", "Summary of key project achievements, business value, and reliability.")
 
-    if os.path.exists(logo_path):
-        s9.shapes.add_picture(logo_path, Inches(1.0), Inches(0.7), height=Inches(0.95))
-
-    # Center Thank You Title
-    t9 = s9.shapes.add_textbox(Inches(1.0), Inches(1.9), Inches(11.3), Inches(1.0))
-    p9 = t9.text_frame.paragraphs[0]
-    p9.text = "Thank You!"
-    p9.font.size = Pt(46)
-    p9.font.bold = True
-    p9.font.color.rgb = ACCENT_CYAN
-
-    # Subtitle
-    sub9 = s9.shapes.add_textbox(Inches(1.0), Inches(2.95), Inches(11.3), Inches(0.5))
-    psub9 = sub9.text_frame.paragraphs[0]
-    psub9.text = "Questions & Discussion"
-    psub9.font.size = Pt(22)
-    psub9.font.color.rgb = TEXT_LIGHT
-
-    # Two Cards on Slide 9
     add_grid_card(
         s9,
-        left=Inches(1.0), top=Inches(3.8), width=Inches(5.4), height=Inches(2.9),
-        side_heading="Project Conclusion",
+        left=Inches(1.0), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="1. Fast & Fully Autonomous",
         points=[
-            "InsightX AI makes business data analysis fast, simple, and 100% reliable.",
-            "Principle 'Code Computes, AI Explains' completely prevents AI hallucinations.",
-            "Delivers data cleaning, interactive charts, and ML predictions in < 60 seconds.",
-            "Enables anyone to make smart, data-driven decisions without needing to code."
+            "Turns raw, messy files into interactive dashboards and ML models in < 60 seconds.",
+            "Eliminates the need for manual spreadsheet cleaning and complex SQL writing."
         ],
         accent_color=ACCENT_CYAN
     )
 
     add_grid_card(
         s9,
-        left=Inches(6.9), top=Inches(3.8), width=Inches(5.4), height=Inches(2.9),
-        side_heading="Student & University Info",
+        left=Inches(6.9), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="2. Zero AI Hallucinations",
         points=[
-            "Presented By: B. Datta Sai Manikanta",
-            "Registration No: 72311633",
-            "Department: B.Tech CSE (AI & DS)",
-            "College: CT University, Ludhiana (Punjab)",
-            "Industry Partner: DataValley Pvt. Ltd.",
-            "GitHub: github.com/bommisettydattasaimanikanta/insightX-ai"
+            "Our core principle 'Code Computes, AI Explains' guarantees 100% accurate math.",
+            "All metrics are calculated by deterministic SQL queries, never guessed by AI."
+        ],
+        accent_color=ACCENT_GREEN
+    )
+
+    add_grid_card(
+        s9,
+        left=Inches(1.0), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="3. Enterprise-Ready Security",
+        points=[
+            "Keeps original raw data safe with immutable, versioned Parquet lake storage.",
+            "Built-in AST firewall successfully blocks all harmful SQL queries and injection attacks."
         ],
         accent_color=ACCENT_BLUE
     )
 
+    add_grid_card(
+        s9,
+        left=Inches(6.9), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="4. Real Business Value",
+        points=[
+            "Reduces data preparation and reporting time by 80% across business teams.",
+            "Empowers non-technical managers to make fast, reliable, data-backed decisions."
+        ],
+        accent_color=ACCENT_CYAN
+    )
+
     s9.notes_slide.notes_text_frame.text = (
-        "In conclusion, InsightX AI makes data analysis fast, simple, and 100% reliable. "
-        "Thank you very much for your time and guidance. I would be happy to answer any questions you have."
+        "In conclusion, InsightX AI proves that data analytics can be autonomous, lightning-fast, and 100% mathematically honest. "
+        "By enforcing 'Code Computes, AI Explains', we eliminate AI hallucinations. The platform saves 80% of data preparation time "
+        "and enables non-technical managers to make smart decisions with confidence."
+    )
+
+    # ==========================================
+    # SLIDE 10: Thank You! (Dedicated Clean Slide)
+    # ==========================================
+    s10 = prs.slides.add_slide(blank_layout)
+    set_background(s10)
+
+    # University Logo centered on Slide 10
+    if os.path.exists(logo_path):
+        s10.shapes.add_picture(logo_path, Inches(4.9), Inches(1.2), height=Inches(1.2))
+
+    # Center Thank You Title
+    t10 = s10.shapes.add_textbox(Inches(1.0), Inches(2.7), Inches(11.333), Inches(1.1))
+    tf10 = t10.text_frame
+    p10 = tf10.paragraphs[0]
+    p10.text = "Thank You!"
+    p10.font.size = Pt(50)
+    p10.font.bold = True
+    p10.font.color.rgb = ACCENT_CYAN
+    p10.alignment = PP_ALIGN.CENTER
+
+    # Subtitle
+    sub10 = s10.shapes.add_textbox(Inches(1.0), Inches(3.85), Inches(11.333), Inches(0.6))
+    tf_sub10 = sub10.text_frame
+    psub10 = tf_sub10.paragraphs[0]
+    psub10.text = "Questions & Discussion"
+    psub10.font.size = Pt(24)
+    psub10.font.color.rgb = TEXT_LIGHT
+    psub10.alignment = PP_ALIGN.CENTER
+
+    # Clean Center Project Ribbon / Box
+    ribbon = s10.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(2.6), Inches(4.8), Inches(8.133), Inches(1.6))
+    ribbon.fill.solid()
+    ribbon.fill.fore_color.rgb = CARD_BG
+    ribbon.line.color.rgb = CARD_BORDER
+    ribbon.line.width = Pt(1.2)
+
+    strip10 = s10.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(2.6), Inches(4.8), Inches(8.133), Inches(0.06))
+    strip10.fill.solid()
+    strip10.fill.fore_color.rgb = ACCENT_CYAN
+    strip10.line.color.rgb = ACCENT_CYAN
+
+    tx_ribbon = s10.shapes.add_textbox(Inches(2.8), Inches(5.0), Inches(7.733), Inches(1.2))
+    tf_rib = tx_ribbon.text_frame
+    tf_rib.word_wrap = True
+
+    p_r1 = tf_rib.paragraphs[0]
+    p_r1.text = "InsightX AI: Autonomous AI Data Analyst & Decision Platform"
+    p_r1.font.size = Pt(15)
+    p_r1.font.bold = True
+    p_r1.font.color.rgb = TEXT_WHITE
+    p_r1.alignment = PP_ALIGN.CENTER
+    p_r1.space_after = Pt(6)
+
+    p_r2 = tf_rib.add_paragraph()
+    p_r2.text = "Official GitHub Repository: https://github.com/bommisettydattasaimanikanta/insightX-ai"
+    p_r2.font.size = Pt(13)
+    p_r2.font.color.rgb = ACCENT_CYAN
+    p_r2.alignment = PP_ALIGN.CENTER
+
+    s10.notes_slide.notes_text_frame.text = (
+        "Thank you very much for your valuable time and attention. I am now open to your questions, "
+        "feedback, and discussion."
     )
 
     output_pptx = os.path.abspath("InsightX_AI_Project_Presentation.pptx")
