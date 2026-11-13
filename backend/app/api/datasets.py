@@ -8,11 +8,15 @@ from pydantic import BaseModel
 
 from backend.app.config import settings
 from backend.app.db.session import get_db
-from backend.app.models.all_models import Dataset, DatasetVersion, Workspace, User
+from backend.app.models.all_models import Dataset, DatasetVersion, Workspace, User, DashboardSpec, SemanticModel
 from backend.app.services.auth_service import get_current_user
 from backend.app.services.ingestion import load_dataset_file, save_to_parquet
 from backend.app.services.profiling import profile_dataset
 from backend.app.services.dataset_service import DatasetService
+from backend.app.services.pipeline_service import PipelineService
+from backend.app.services.semantic_service import SemanticService
+from backend.app.services.dashboard_generator import DashboardGenerator
+from backend.app.jobs.queue import JobManager
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
 
@@ -40,6 +44,87 @@ def list_datasets(db: Session = Depends(get_db), current_user: User = Depends(ge
         "created_at": d.created_at.isoformat() if d.created_at else None,
         "updated_at": d.updated_at.isoformat() if d.updated_at else None,
     } for d in datasets]
+
+@router.post("/demo/{sample_type}")
+def load_sample_dataset_endpoint(
+    sample_type: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from backend.app.models.all_models import WorkspaceMember
+    member = db.query(WorkspaceMember).filter(WorkspaceMember.user_id == current_user.id).first()
+    workspace_id = member.workspace_id if member else db.query(Workspace).first().id
+
+    if sample_type == "cricket":
+        file_path = "sample_data/cricket_dataset.csv"
+        ext = "csv"
+        dataset_name = "Cricket Matches Performance"
+        description = "516 match records with runs, opponent, ground, format, and milestone totals."
+    elif sample_type == "sales":
+        file_path = "sample_data/messy_sales_data.xlsx"
+        ext = "xlsx"
+        dataset_name = "Messy Retail Sales (Demo)"
+        description = "Demonstration dataset with merged cells, subtotals, Indian numbers, currencies, and mixed dates."
+    else:
+        file_path = "sample_data/web_traffic_timeseries.csv"
+        ext = "csv"
+        dataset_name = "Web Traffic Time-Series (Demo)"
+        description = "180 days of daily web traffic, bounce rate, conversions, and revenue."
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail=f"Sample file {file_path} not found on disk.")
+
+    df, parse_meta = load_dataset_file(file_path, ext)
+    
+    dataset = Dataset(
+        workspace_id=workspace_id,
+        name=dataset_name,
+        description=description,
+        file_type=ext,
+        source_type="demo",
+        current_version=1,
+        status="ready",
+        row_count=len(df),
+        col_count=len(df.columns),
+        metadata_json=parse_meta
+    )
+    db.add(dataset)
+    db.commit()
+    db.refresh(dataset)
+
+    parquet_path = save_to_parquet(df, dataset.id, 1)
+    profile = profile_dataset(df)
+
+    version_rec = DatasetVersion(
+        dataset_id=dataset.id,
+        version_num=1,
+        parquet_path=parquet_path,
+        raw_file_path=file_path,
+        row_count=len(df),
+        col_count=len(df.columns),
+        schema_json=profile["columns"],
+        quality_score=profile["quality_score"]["overall"],
+        change_summary="Initial demo ingestion"
+    )
+    db.add(version_rec)
+    db.commit()
+
+    # Trigger Auto-Pipeline (Ingest -> Profile -> Classify -> Auto-Clean -> Semantic -> Dashboard -> Insights)
+    job = JobManager.create_job(db, "auto_pipeline", dataset_id=dataset.id, workspace_id=workspace_id)
+    pipeline_res = PipelineService.run_auto_pipeline(dataset.id, job.id, workspace_id)
+
+    return {
+        "id": dataset.id,
+        "name": dataset.name,
+        "row_count": dataset.row_count,
+        "col_count": dataset.col_count,
+        "current_version": dataset.current_version,
+        "quality_score": profile["quality_score"],
+        "parse_meta": parse_meta,
+        "job_id": job.id,
+        "pipeline_status": pipeline_res.get("status", "completed"),
+        "cleaning_summary": pipeline_res.get("cleaning_summary", {})
+    }
 
 @router.post("/upload")
 async def upload_dataset(
@@ -106,14 +191,21 @@ async def upload_dataset(
     db.add(version_rec)
     db.commit()
     
+    # Trigger Auto-Pipeline (Ingest -> Profile -> Classify -> Auto-Clean -> Semantic -> Dashboard -> Insights)
+    job = JobManager.create_job(db, "auto_pipeline", dataset_id=dataset.id, workspace_id=workspace_id)
+    pipeline_res = PipelineService.run_auto_pipeline(dataset.id, job.id, workspace_id)
+
     return {
         "id": dataset.id,
         "name": dataset.name,
         "row_count": dataset.row_count,
         "col_count": dataset.col_count,
-        "current_version": 1,
+        "current_version": dataset.current_version,
         "quality_score": profile["quality_score"],
-        "parse_meta": parse_meta
+        "parse_meta": parse_meta,
+        "job_id": job.id,
+        "pipeline_status": pipeline_res.get("status", "completed"),
+        "cleaning_summary": pipeline_res.get("cleaning_summary", {})
     }
 
 @router.get("/{dataset_id}")
@@ -195,3 +287,76 @@ def permanent_delete(
     current_user: User = Depends(get_current_user)
 ):
     return DatasetService.permanent_delete(db, dataset_id, req.confirmation_name, user_id=current_user.id)
+
+@router.post("/{dataset_id}/reanalyze")
+@router.post("/{dataset_id}/auto-pipeline")
+def trigger_auto_pipeline_endpoint(
+    dataset_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """One-click Re-analyze: runs full pipeline on existing dataset."""
+    dataset, _ = DatasetService.get_dataset_df(db, dataset_id)
+    job = JobManager.create_job(db, "auto_pipeline", dataset_id=dataset.id, workspace_id=dataset.workspace_id)
+    pipeline_res = PipelineService.run_auto_pipeline(dataset.id, job.id, dataset.workspace_id)
+    return {
+        "dataset_id": dataset.id,
+        "job_id": job.id,
+        "status": pipeline_res.get("status", "completed"),
+        "result": pipeline_res
+    }
+
+@router.post("/{dataset_id}/undo-clean")
+def undo_cleaning_endpoint(
+    dataset_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Reverts dataset to Version 1 (original immutable raw data) and refreshes dashboard."""
+    dataset, _ = DatasetService.get_dataset_df(db, dataset_id)
+    v1 = db.query(DatasetVersion).filter(
+        DatasetVersion.dataset_id == dataset.id,
+        DatasetVersion.version_num == 1
+    ).first()
+    if not v1:
+        raise HTTPException(status_code=404, detail="Initial raw version not found.")
+        
+    dataset.current_version = 1
+    dataset.row_count = v1.row_count
+    dataset.col_count = v1.col_count
+    db.commit()
+    
+    # Re-run dashboard on v1
+    _, raw_df = DatasetService.get_dataset_df(db, dataset_id)
+    sem_dict = SemanticService.build_semantic_layer(raw_df)
+    dash_spec = DashboardGenerator.generate_auto_dashboard(
+        raw_df,
+        sem_dict,
+        title=f"{dataset.name} Performance Dashboard (Original Data)",
+        cleaning_summary={"issues_fixed_count": 0, "undone": True}
+    )
+    
+    dash = db.query(DashboardSpec).filter(
+        DashboardSpec.dataset_id == dataset.id,
+        DashboardSpec.version_num == 1
+    ).first()
+    if dash:
+        dash.spec_json = dash_spec
+    else:
+        dash = DashboardSpec(
+            dataset_id=dataset.id,
+            workspace_id=dataset.workspace_id,
+            name=dash_spec["title"],
+            version_num=1,
+            spec_json=dash_spec,
+            is_default=True
+        )
+        db.add(dash)
+    db.commit()
+    
+    return {
+        "success": True,
+        "dataset_id": dataset.id,
+        "current_version": 1,
+        "message": "Reverted to original immutable data."
+    }

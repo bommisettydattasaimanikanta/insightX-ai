@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
+from backend.app.config import settings
 from backend.app.db.session import get_db
 from backend.app.models.all_models import User, SemanticModel, DatasetVersion
 from backend.app.services.auth_service import get_current_user
@@ -11,6 +12,21 @@ from backend.app.services.semantic_service import SemanticService
 from backend.app.agents.text_to_sql import SafeTextToSQLAgent
 
 router = APIRouter(prefix="/chat", tags=["Agentic Chatbot"])
+
+@router.get("/llm-status")
+def get_llm_status():
+    has_key = bool(
+        settings.GEMINI_API_KEY.strip() or 
+        settings.OPENAI_API_KEY.strip() or 
+        settings.ANTHROPIC_API_KEY.strip()
+    )
+    return {
+        "configured": has_key,
+        "provider": settings.LLM_PROVIDER,
+        "model": settings.LLM_MODEL,
+        "mode": "LLM Assisted" if has_key else "Deterministic Semantic Engine",
+        "message": "Connected to LLM provider." if has_key else "Operating with deterministic semantic layer code engine (no LLM key configured in .env)."
+    }
 
 class ChatQueryRequest(BaseModel):
     question: str

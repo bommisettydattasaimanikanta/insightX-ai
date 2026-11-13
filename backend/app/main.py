@@ -27,10 +27,11 @@ app = FastAPI(
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins in dev
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 @app.on_event("startup")
@@ -40,6 +41,22 @@ def on_startup():
         ensure_default_user_and_workspace(db)
     finally:
         db.close()
+
+    # Loud verification of LLM configuration at startup
+    has_gemini = bool(settings.GEMINI_API_KEY and settings.GEMINI_API_KEY.strip())
+    has_openai = bool(settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.strip())
+    has_anthropic = bool(settings.ANTHROPIC_API_KEY and settings.ANTHROPIC_API_KEY.strip())
+    
+    if not (has_gemini or has_openai or has_anthropic):
+        print("\n" + "=" * 80)
+        print(" [LLM STARTUP WARNING] No external LLM API key detected in .env!")
+        print(" - GEMINI_API_KEY, OPENAI_API_KEY, and ANTHROPIC_API_KEY are empty.")
+        print(" - Safe Text-to-SQL is running in deterministic mode with Semantic Layer templates.")
+        print(" - All KPI calculations, ranking, and grounded question-answering remain fully operational.")
+        print("=" * 80 + "\n")
+    else:
+        active_provider = "Gemini" if has_gemini else ("OpenAI" if has_openai else "Anthropic")
+        print(f"\n[LLM STARTUP] External LLM provider '{active_provider}' is configured and ready.\n")
 
 # Mount all API routers
 app.include_router(auth_router, prefix=settings.API_V1_STR)

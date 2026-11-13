@@ -21,7 +21,7 @@ class TimeSeriesForecaster:
         
         # Resample to regular frequency
         series = temp.groupby(pd.Grouper(key=time_col, freq=freq))[metric_col].sum()
-        series = series.fillna(method="ffill").fillna(0)
+        series = series.ffill().fillna(0)
         
         if len(series) < 10:
             raise ValueError("Time series requires at least 10 historical data points to generate forecast.")

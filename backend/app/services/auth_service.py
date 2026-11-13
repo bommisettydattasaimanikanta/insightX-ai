@@ -1,6 +1,8 @@
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
-from jose import JWTError, jwt
+from jose import jwt
+from jose.exceptions import JWTError, ExpiredSignatureError, JWTClaimsError
 import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -9,7 +11,13 @@ from backend.app.config import settings
 from backend.app.db.session import get_db
 from backend.app.models.all_models import User, Workspace, WorkspaceMember
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
+logger = logging.getLogger("insightforge.auth")
+
+# Use auto_error=False so get_current_user can explicitly log the failure reason
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_STR}/auth/login",
+    auto_error=False
+)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
@@ -31,24 +39,39 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    if not token or not token.strip():
+        logger.warning("Auth failure (401): Missing or empty Authorization header")
+        raise credentials_exception
+
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        email: str = payload.get("sub")
+        email: Optional[str] = payload.get("sub")
         if email is None:
+            logger.warning("Auth failure (401): Missing 'sub' claim in JWT payload")
             raise credentials_exception
-    except JWTError:
+    except ExpiredSignatureError:
+        logger.warning("Auth failure (401): Token has expired")
+        raise credentials_exception
+    except JWTClaimsError as ce:
+        logger.warning("Auth failure (401): Invalid JWT claims (%s)", str(ce))
+        raise credentials_exception
+    except JWTError as je:
+        logger.warning("Auth failure (401): Bad signature or malformed JWT (%s)", str(je))
         raise credentials_exception
         
     user = db.query(User).filter(User.email == email).first()
     if user is None:
+        logger.warning("Auth failure (401): User not found in database for email: %s", email)
         raise credentials_exception
     if not user.is_active:
+        logger.warning("Auth failure (400): Inactive user account for email: %s", email)
         raise HTTPException(status_code=400, detail="Inactive user")
     return user
 

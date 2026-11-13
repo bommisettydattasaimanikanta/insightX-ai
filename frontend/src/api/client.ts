@@ -1,15 +1,23 @@
+import { useAuthStore } from "../stores/useAuthStore";
+
 const API_BASE = "http://localhost:8000/api";
 
 export async function apiRequest(endpoint: string, options: RequestInit = {}) {
-  const token = localStorage.getItem("token") || "demo_token";
+  // Read token from Zustand auth store or localStorage fallback
+  const token = useAuthStore.getState().token || localStorage.getItem("token");
   const headers = new Headers(options.headers || {});
-  
-  if (!headers.has("Authorization") && token) {
+
+  // Attach Authorization header if token exists and not already set
+  if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
-  
-  // Only set Content-Type to application/json if not sending FormData
-  if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
+
+  // Handle FormData: NEVER set Content-Type header manually for FormData (the browser auto-sets multipart/form-data with boundary)
+  if (options.body instanceof FormData) {
+    if (headers.has("Content-Type")) {
+      headers.delete("Content-Type");
+    }
+  } else if (!headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -17,6 +25,16 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     ...options,
     headers,
   });
+
+  // Intercept 401 Unauthorized responses
+  if (response.status === 401) {
+    // Only trigger session expiration logout if this isn't the login endpoint itself
+    if (!endpoint.includes("/auth/login")) {
+      useAuthStore.getState().logout("Session expired, please log in again");
+    }
+    const errorData = await response.json().catch(() => ({ detail: "Session expired, please log in again" }));
+    throw new Error(errorData.detail || "Session expired, please log in again");
+  }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ detail: response.statusText }));
@@ -28,18 +46,28 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
 
 export const api = {
   // Auth
-  login: (formData: FormData) => apiRequest("/auth/login", { method: "POST", body: formData }),
+  login: (formData: FormData | URLSearchParams) =>
+    apiRequest("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: formData.toString(),
+    }),
+  register: (data: { email: string; password: string; full_name?: string }) =>
+    apiRequest("/auth/register", { method: "POST", body: JSON.stringify(data) }),
   getMe: () => apiRequest("/auth/me"),
 
   // Datasets
   getDatasets: () => apiRequest("/datasets/"),
   getDataset: (id: string) => apiRequest(`/datasets/${id}`),
   uploadDataset: (formData: FormData) => apiRequest("/datasets/upload", { method: "POST", body: formData }),
+  loadDemoDataset: (sampleType: "cricket" | "sales" | "traffic") => apiRequest(`/datasets/demo/${sampleType}`, { method: "POST" }),
   getProfile: (id: string) => apiRequest(`/datasets/${id}/profile`),
   getVersions: (id: string) => apiRequest(`/datasets/${id}/versions`),
   editCell: (id: string, data: { row_index: number; column_name: string; new_value: any }) =>
     apiRequest(`/datasets/${id}/edit-cell`, { method: "POST", body: JSON.stringify(data) }),
   getImpact: (id: string) => apiRequest(`/datasets/${id}/impact`),
+  reanalyze: (id: string) => apiRequest(`/datasets/${id}/reanalyze`, { method: "POST" }),
+  undoClean: (id: string) => apiRequest(`/datasets/${id}/undo-clean`, { method: "POST" }),
   moveToTrash: (id: string) => apiRequest(`/datasets/${id}/trash`, { method: "DELETE" }),
   restoreDataset: (id: string) => apiRequest(`/datasets/${id}/restore`, { method: "POST" }),
   permanentDelete: (id: string, confirmation_name: string) =>
@@ -95,6 +123,23 @@ export const api = {
   getTrash: () => apiRequest("/trash/"),
 
   // Exports
-  getPDFUrl: (id: string) => `${API_BASE}/reports/${id}/pdf`,
+  getPDFUrl: (id: string) => `${API_BASE}/dashboards/${id}/export/pdf`,
   getNotebookUrl: (id: string) => `${API_BASE}/reports/${id}/notebook`,
+  downloadExport: async (datasetId: string, format: "pdf" | "png" | "pptx" | "excel" | "csv", filename?: string) => {
+    const token = useAuthStore.getState().token || localStorage.getItem("token");
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE}/dashboards/${datasetId}/export/${format}`, { headers });
+    if (!res.ok) throw new Error(`Export failed with status ${res.status}`);
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename || `dashboard_${datasetId}.${format === "excel" ? "xlsx" : format}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };

@@ -19,7 +19,8 @@ class DecisionSupportService:
             raise FileNotFoundError("Trained ML model artifact not found.")
             
         bundle = joblib.load(model_path)
-        model = bundle["model"]
+        # Always use the best non-baseline model for feature sensitivity & what-if
+        model = bundle.get("non_baseline_model") or bundle["model"]
         features = bundle["features"]
         
         # Build baseline input vector
@@ -49,7 +50,8 @@ class DecisionSupportService:
             return []
             
         bundle = joblib.load(model_path)
-        model = bundle["model"]
+        # Always use the best non-baseline model for feature sensitivity & what-if
+        model = bundle.get("non_baseline_model") or bundle["model"]
         features = bundle["features"]
         
         base_vec = [base_features.get(f, 0.0) for f in features]
@@ -97,7 +99,8 @@ class DecisionSupportService:
             raise FileNotFoundError("Model not found")
             
         bundle = joblib.load(model_path)
-        model = bundle["model"]
+        # Always use the best non-baseline model for feature sensitivity & what-if
+        model = bundle.get("non_baseline_model") or bundle["model"]
         features = bundle["features"]
         if target_feature not in features:
             raise ValueError(f"Feature '{target_feature}' not used by model.")

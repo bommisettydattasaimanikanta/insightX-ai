@@ -23,7 +23,7 @@ export const IngestionView: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [activeTab, setIngestTab] = useState<"file" | "database">("file");
+  const [ingestTab, setIngestTab] = useState<"file" | "database">("file");
   
   // Database connection form
   const [dbType, setDbType] = useState("sqlite");
@@ -34,24 +34,24 @@ export const IngestionView: React.FC = () => {
     try {
       setIsUploading(true);
       setErrorMsg(null);
-      setUploadProgress("Ingesting raw file & stripping formatting...");
+      setUploadProgress("Reading raw file & converting to columnar Parquet...");
 
       const fd = new FormData();
       fd.append("file", file);
       fd.append("name", file.name.replace(/\.[^/.]+$/, ""));
 
-      setUploadProgress("Converting to columnar DuckDB/Parquet...");
+      setUploadProgress("Auto-Pipeline running: Ingest -> Profile -> Classify -> Auto-Clean...");
       const result = await api.uploadDataset(fd);
 
-      setUploadProgress("Profiling columns and computing Quality Score...");
+      setUploadProgress("Building Semantic Layer, generating dashboard & ranking insights...");
       await fetchDatasets();
       await selectDataset(result.id);
       
-      setUploadProgress("Complete! Transitioning to Cleaning & Dashboard...");
+      setUploadProgress("Complete! Navigating straight to your executive dashboard...");
       setTimeout(() => {
         setIsUploading(false);
-        setActiveTab("cleaning");
-      }, 800);
+        setActiveTab("dashboard");
+      }, 400);
     } catch (e: any) {
       setIsUploading(false);
       setErrorMsg(e.message || "Failed to upload dataset.");
@@ -128,7 +128,7 @@ export const IngestionView: React.FC = () => {
         <button
           onClick={() => setIngestTab("file")}
           className={`pb-3 px-4 flex items-center gap-2 border-b-2 transition ${
-            activeTab === "file"
+            ingestTab === "file"
               ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
               : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
           }`}
@@ -139,7 +139,7 @@ export const IngestionView: React.FC = () => {
         <button
           onClick={() => setIngestTab("database")}
           className={`pb-3 px-4 flex items-center gap-2 border-b-2 transition ${
-            activeTab === "database"
+            ingestTab === "database"
               ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
               : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
           }`}
@@ -150,7 +150,7 @@ export const IngestionView: React.FC = () => {
       </div>
 
       {/* File Upload Box */}
-      {activeTab === "file" && (
+      {ingestTab === "file" && (
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
@@ -200,7 +200,7 @@ export const IngestionView: React.FC = () => {
       )}
 
       {/* Database Connection Panel */}
-      {activeTab === "database" && (
+      {ingestTab === "database" && (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 space-y-4 shadow-sm">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
             <div>

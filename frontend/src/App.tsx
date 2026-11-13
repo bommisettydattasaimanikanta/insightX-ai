@@ -1,57 +1,81 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useAppStore } from "./stores/useAppStore";
+import { useAuthStore } from "./stores/useAuthStore";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Header } from "./components/layout/Header";
-import { IngestionView } from "./components/views/IngestionView";
-import { CleaningView } from "./components/views/CleaningView";
-import { SemanticView } from "./components/views/SemanticView";
+import { LoginView } from "./components/views/LoginView";
 import { DashboardView } from "./components/views/DashboardView";
-import { MLLabView } from "./components/views/MLLabView";
+import { IngestionView } from "./components/views/IngestionView";
+import { AnalysisView } from "./components/views/AnalysisView";
+import { PredictionsView } from "./components/views/PredictionsView";
 import { InsightsView } from "./components/views/InsightsView";
-import { DecisionSupportView } from "./components/views/DecisionSupportView";
-import { ChatView } from "./components/views/ChatView";
-import { TrashView } from "./components/views/TrashView";
 import { SettingsView } from "./components/views/SettingsView";
+import { Sparkles } from "lucide-react";
 
 export function App() {
   const { activeTab, setActiveTab, fetchDatasets, darkMode } = useAppStore();
+  const { isAuthenticated, checkAuth } = useAuthStore();
+  const [isInitializing, setIsInitializing] = useState(true);
 
+  // Validate session on app startup via /api/auth/me
   useEffect(() => {
-    fetchDatasets();
-  }, [fetchDatasets]);
+    const initSession = async () => {
+      try {
+        const valid = await checkAuth();
+        if (valid) {
+          await fetchDatasets();
+        }
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    initSession();
+  }, [checkAuth, fetchDatasets]);
 
-  // Global Ctrl+K keyboard shortcut
+  // Global Ctrl+K keyboard shortcut opens AI Insights search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
-        setActiveTab("chat");
+        setActiveTab("insights");
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [setActiveTab]);
 
+  // If still verifying initial token on boot
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#070b19] text-slate-100">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-cyan-600/30 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+            <Sparkles className="w-4 h-4 animate-spin" />
+          </div>
+          <span className="text-sm font-medium text-slate-300">Validating InsightX session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Route guard: if not authenticated, redirect to Login
+  if (!isAuthenticated) {
+    return <LoginView />;
+  }
+
+  // Exactly 6 routes as requested
   const renderActiveView = () => {
     switch (activeTab) {
-      case "ingestion":
-        return <IngestionView />;
-      case "cleaning":
-        return <CleaningView />;
-      case "semantic":
-        return <SemanticView />;
       case "dashboard":
         return <DashboardView />;
-      case "ml":
-        return <MLLabView />;
+      case "ingestion":
+        return <IngestionView />;
+      case "analysis":
+        return <AnalysisView />;
+      case "predictions":
+        return <PredictionsView />;
       case "insights":
         return <InsightsView />;
-      case "decision":
-        return <DecisionSupportView />;
-      case "chat":
-        return <ChatView />;
-      case "trash":
-        return <TrashView />;
       case "settings":
         return <SettingsView />;
       default:
@@ -60,14 +84,14 @@ export function App() {
   };
 
   return (
-    <div className={`min-h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans ${darkMode ? "dark" : ""}`}>
-      {/* Sidebar Navigation */}
+    <div className={`min-h-screen flex bg-[#070b19] text-slate-100 font-sans ${darkMode ? "dark" : ""}`}>
+      {/* Reduced 6-item Sidebar Navigation */}
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#070b19]">
         <Header />
-        <main className="flex-1 overflow-y-auto bg-slate-50/50 dark:bg-slate-950/50">
+        <main className="flex-1 overflow-y-auto bg-[#070b19]">
           {renderActiveView()}
         </main>
       </div>

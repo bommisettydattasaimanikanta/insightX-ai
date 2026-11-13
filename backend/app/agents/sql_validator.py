@@ -1,3 +1,4 @@
+import re
 import sqlglot
 from sqlglot import exp
 from typing import Tuple, Optional, Set
@@ -23,11 +24,16 @@ class SafeSQLValidator:
         Parses SQL AST. Returns (is_valid, sanitized_sql, error_message).
         """
         cleaned_sql = sql_query.strip().rstrip(";")
+        # Normalize MySQL-style backticks to double quotes for standard SQL / DuckDB AST
+        cleaned_sql = re.sub(r"`([^`]+)`", r'"\1"', cleaned_sql)
         
         try:
             parsed = sqlglot.parse_one(cleaned_sql, read="duckdb")
-        except Exception as e:
-            return False, cleaned_sql, f"SQL Syntax Parsing Error: {str(e)}"
+        except Exception:
+            try:
+                parsed = sqlglot.parse_one(cleaned_sql)
+            except Exception as e:
+                return False, cleaned_sql, f"SQL Syntax Parsing Error: {str(e)}"
             
         # 1. Enforce SELECT or CTE (WITH)
         if not isinstance(parsed, (exp.Select, exp.Union)):

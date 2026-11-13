@@ -2,16 +2,21 @@ import { create } from "zustand";
 import { api } from "../api/client";
 
 export type NavigationTab =
-  | "ingestion"
-  | "cleaning"
-  | "semantic"
   | "dashboard"
-  | "ml"
+  | "ingestion"
+  | "analysis"
+  | "predictions"
   | "insights"
-  | "decision"
-  | "chat"
-  | "trash"
   | "settings";
+
+interface PipelineProgress {
+  jobId?: string;
+  progressPct: number;
+  message: string;
+  status: "idle" | "running" | "completed" | "failed";
+  step?: string;
+  kpiCards?: any[];
+}
 
 interface AppState {
   activeTab: NavigationTab;
@@ -24,6 +29,8 @@ interface AppState {
   privacyMode: boolean;
   isLoading: boolean;
   error: string | null;
+  pipelineProgress: PipelineProgress | null;
+  pinnedQueries: any[];
   
   setActiveTab: (tab: NavigationTab) => void;
   setMode: (mode: "autopilot" | "review") => void;
@@ -31,27 +38,35 @@ interface AppState {
   toggleDarkMode: () => void;
   togglePrivacyMode: () => void;
   setError: (err: string | null) => void;
+  setPipelineProgress: (prog: PipelineProgress | null) => void;
+  pinQueryToDashboard: (queryResult: any) => void;
   
   fetchDatasets: () => Promise<void>;
   selectDataset: (id: string) => Promise<void>;
-  loadSampleDataset: (sampleType: "sales" | "traffic") => Promise<void>;
+  loadSampleDataset: (sampleType: "cricket" | "sales" | "traffic") => Promise<void>;
+  reanalyzeDataset: (id: string) => Promise<void>;
+  undoClean: (id: string) => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  activeTab: "ingestion",
+  activeTab: "dashboard",
   datasets: [],
   activeDatasetId: null,
   activeDataset: null,
   mode: "autopilot",
-  viewMode: "pro",
-  darkMode: false,
+  viewMode: "simple",
+  darkMode: true, // Mockup style: dark navy default
   privacyMode: false,
   isLoading: false,
   error: null,
+  pipelineProgress: null,
+  pinnedQueries: [],
 
   setActiveTab: (tab) => set({ activeTab: tab }),
   setMode: (mode) => set({ mode }),
   setViewMode: (viewMode) => set({ viewMode }),
+  setPipelineProgress: (pipelineProgress) => set({ pipelineProgress }),
+  pinQueryToDashboard: (queryResult) => set((state) => ({ pinnedQueries: [queryResult, ...state.pinnedQueries] })),
   
   toggleDarkMode: () => {
     const next = !get().darkMode;
@@ -93,30 +108,90 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  loadSampleDataset: async (sampleType: "sales" | "traffic") => {
+  loadSampleDataset: async (sampleType: "cricket" | "sales" | "traffic") => {
     try {
-      set({ isLoading: true, error: null });
-      const filename = sampleType === "sales" ? "sample_data/messy_sales_data.xlsx" : "sample_data/web_traffic_timeseries.csv";
-      const name = sampleType === "sales" ? "Messy Retail Sales (Demo)" : "Web Traffic Time-Series (Demo)";
-      
-      // In local setup, we can upload using a sample blob or trigger the ingestion API
-      const res = await fetch(`/${filename}`).catch(() => null);
-      let blob: Blob;
-      if (res && res.ok) {
-        blob = await res.blob();
-      } else {
-        // Fallback demo mock payload
-        blob = new Blob(["Order Date,Region,Sales Amount,Quantity\n2025-01-01,North,1200,4\n2025-01-02,South,2400,6"], { type: "text/csv" });
-      }
+      set({
+        isLoading: true,
+        error: null,
+        pipelineProgress: {
+          progressPct: 20,
+          message: "Ingesting sample dataset into columnar storage...",
+          status: "running"
+        }
+      });
 
-      const fd = new FormData();
-      fd.append("file", blob, sampleType === "sales" ? "messy_sales_data.xlsx" : "web_traffic_timeseries.csv");
-      fd.append("name", name);
-      
-      const created = await api.uploadDataset(fd);
+      const created = await api.loadDemoDataset(sampleType);
+
+      set({
+        pipelineProgress: {
+          progressPct: 60,
+          message: "Auto-cleaning dates, numbers, whitespace, and subtotal rows...",
+          status: "running"
+        }
+      });
+
       await get().fetchDatasets();
       await get().selectDataset(created.id);
-      set({ activeTab: "dashboard" }); // Switch to auto dashboard immediately
+
+      set({
+        pipelineProgress: {
+          progressPct: 100,
+          message: "Done! Opening your executive dashboard...",
+          status: "completed"
+        }
+      });
+
+      setTimeout(() => {
+        set({ pipelineProgress: null, activeTab: "dashboard" });
+      }, 500);
+    } catch (e: any) {
+      set({ error: e.message, pipelineProgress: null });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  reanalyzeDataset: async (id: string) => {
+    try {
+      set({
+        isLoading: true,
+        error: null,
+        pipelineProgress: {
+          progressPct: 25,
+          message: "Re-analyzing dataset and rebuilding semantic models...",
+          status: "running"
+        }
+      });
+
+      await api.reanalyze(id);
+
+      set({
+        pipelineProgress: {
+          progressPct: 100,
+          message: "Re-analysis complete! Updating dashboard...",
+          status: "completed"
+        }
+      });
+
+      await get().fetchDatasets();
+      await get().selectDataset(id);
+
+      setTimeout(() => {
+        set({ pipelineProgress: null, activeTab: "dashboard" });
+      }, 600);
+    } catch (e: any) {
+      set({ error: e.message, pipelineProgress: null });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  undoClean: async (id: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      await api.undoClean(id);
+      await get().fetchDatasets();
+      await get().selectDataset(id);
     } catch (e: any) {
       set({ error: e.message });
     } finally {

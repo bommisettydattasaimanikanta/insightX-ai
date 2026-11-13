@@ -1,7 +1,7 @@
-# InsightForge AI (v2) - Architecture Specification
+# InsightX AI (v2) - Architecture Specification
 
 ## 1. Executive Summary & Tenets
-**InsightForge AI** is an enterprise-grade autonomous data analyst platform designed to ingest raw, messy datasets or live relational databases and produce clean data, declarative dashboards, statistical tests, and machine learning forecasts in under 60 seconds.
+**InsightX AI** is an enterprise-grade autonomous data analyst platform designed to ingest raw, messy datasets or live relational databases and produce clean data, declarative dashboards, statistical tests, and machine learning forecasts in under 60 seconds.
 
 ### Fundamental Non-Negotiable Tenets:
 1. **Code computes, AI explains**: The LLM is strictly prohibited from generating numbers. Every number on every chart, card, and insight originates from deterministic SQL (DuckDB), SciPy, or scikit-learn models, equipped with reproducible "Show how" links.

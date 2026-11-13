@@ -88,6 +88,22 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         }
     }
 
+@router.get("/demo-token", response_model=TokenResponse)
+def get_demo_token(db: Session = Depends(get_db)):
+    user, workspace = ensure_default_user_and_workspace(db)
+    token = create_access_token({"sub": user.email, "uid": user.id})
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "workspace_id": workspace.id,
+            "role": "Owner"
+        }
+    }
+
 @router.get("/me")
 def get_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     member = db.query(WorkspaceMember).filter(WorkspaceMember.user_id == current_user.id).first()
@@ -101,11 +117,12 @@ def get_me(current_user: User = Depends(get_current_user), db: Session = Depends
 
 def ensure_default_user_and_workspace(db: Session) -> tuple[User, Workspace]:
     """Ensures a default demo user and workspace exists for instant out-of-the-box usage."""
-    user = db.query(User).filter(User.email == "demo@insightforge.ai").first()
+    # Seed InsightX AI primary demo user
+    user = db.query(User).filter(User.email.in_(["demo@insightx.ai", "demo@insightforge.ai"])).first()
     if not user:
         user = User(
-            email="demo@insightforge.ai",
-            hashed_password=get_password_hash("insightforge123"),
+            email="demo@insightx.ai",
+            hashed_password=get_password_hash("insightx123"),
             full_name="Lead Analyst"
         )
         db.add(user)

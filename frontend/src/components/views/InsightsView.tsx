@@ -1,197 +1,216 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
-  TrendingUp,
-  CheckCircle,
-  Clock,
-  ArrowRight,
-  Sparkles,
-  HelpCircle,
-  AlertCircle,
-  Filter,
-  CheckSquare,
-  Square,
-  ChevronDown
+  MessageSquare,
+  Send,
+  Pin,
+  RefreshCw,
+  Check,
+  Code,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { useAppStore } from "../../stores/useAppStore";
 import { api } from "../../api/client";
 import { HonestBadge } from "../common/HonestBadge";
 
 export const InsightsView: React.FC = () => {
-  const { activeDatasetId } = useAppStore();
+  const { activeDatasetId, activeDataset, pinQueryToDashboard } = useAppStore();
   
-  const [loading, setLoading] = useState(false);
-  const [insights, setInsights] = useState<any[]>([]);
-  const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [activeFilter, setActiveFilter] = useState<string>("All");
+  const [question, setQuestion] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [chatResponse, setChatResponse] = useState<any | null>(null);
+  const [pinnedSuccess, setPinnedSuccess] = useState(false);
+  const [showSql, setShowSql] = useState(true);
 
-  useEffect(() => {
-    if (activeDatasetId) {
-      loadInsightsData();
-    }
-  }, [activeDatasetId]);
-
-  const loadInsightsData = async () => {
-    if (!activeDatasetId) return;
+  const handleAsk = async (queryText?: string) => {
+    const q = queryText || question;
+    if (!activeDatasetId || !q.trim()) return;
     try {
-      setLoading(true);
-      const [insData, recData] = await Promise.all([
-        api.getInsights(activeDatasetId),
-        api.getRecommendations(activeDatasetId)
-      ]);
-      setInsights(insData.insights || []);
-      setRecommendations(recData || []);
-    } catch (e) {
+      setAsking(true);
+      setPinnedSuccess(false);
+      const res = await api.chatQuery(activeDatasetId, q);
+      setChatResponse({ ...res, question: q });
+      if (!queryText) setQuestion("");
+    } catch (e: any) {
       console.error(e);
+      setChatResponse({
+        question: q,
+        answer: `I couldn't safely compute that from the dataset. ${e.message}`,
+        explanation: `I couldn't safely compute that from the dataset. ${e.message}`,
+        sql: "SELECT * FROM data LIMIT 10",
+        error: e.message,
+        friendly_message: "Could not execute query on dataset.",
+        suggested_fix: "Try asking for a specific metric like 'total runs', 'highest score', or 'average runs per match'."
+      });
     } finally {
-      setLoading(false);
+      setAsking(false);
     }
   };
 
-  const handleUpdateStatus = async (recId: string, currentStatus: string) => {
-    const nextStatus = currentStatus === "To-do" ? "Doing" : currentStatus === "Doing" ? "Done" : "To-do";
-    try {
-      await api.updateRecommendationStatus(activeDatasetId!, recId, nextStatus);
-      setRecommendations(prev =>
-        prev.map(r => (r.id === recId ? { ...r, status: nextStatus } : r))
-      );
-    } catch (e) {
-      console.error(e);
-    }
+  const handlePin = () => {
+    if (!chatResponse) return;
+    pinQueryToDashboard(chatResponse);
+    setPinnedSuccess(true);
+    setTimeout(() => setPinnedSuccess(false), 3000);
   };
+
+  // Sample query chips tailored to dataset
+  const isCricket = activeDataset?.name?.toLowerCase().includes("cricket") || activeDataset?.description?.toLowerCase().includes("cricket");
+  const suggestedQueries = isCricket ? [
+    "total runs",
+    "average runs per match",
+    "which opponent has the highest average",
+    "runs by year",
+    "highest score"
+  ] : [
+    "What is the total sales revenue by region?",
+    "Show the top 5 customers by sales volume",
+    "Which category generated highest average order?",
+    "Monthly trend of revenue and transactions"
+  ];
 
   if (!activeDatasetId) {
-    return <div className="p-12 text-center text-slate-500">Please select a dataset to inspect insights.</div>;
+    return (
+      <div className="p-16 text-center text-slate-400">
+        Please select a dataset to inspect AI insights and ask questions.
+      </div>
+    );
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8 animate-fadeIn">
-      {/* Title */}
-      <div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Ranked Strategic Insights</h1>
-          <HonestBadge type="Statistical test" />
+    <div className="p-6 space-y-6 max-w-7xl mx-auto min-h-screen bg-[#070b19] text-slate-100 animate-fadeIn">
+      {/* Header */}
+      <div className="pb-4 border-b border-slate-800">
+        <div className="flex items-center space-x-2">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-950/70 border border-cyan-800 text-cyan-400 uppercase">
+            AI Synthesis & Agent
+          </span>
+          <span className="text-xs text-slate-400">{activeDataset?.name}</span>
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Scored by: <span className="font-mono text-indigo-600 dark:text-indigo-400 font-semibold">Effect Size × Significance × Coverage × Business Relevance</span>. Fully grounded in deterministic query executions.
+        <h1 className="text-2xl font-bold text-white tracking-tight mt-1">
+          AI Insights & "Ask Your Data"
+        </h1>
+        <p className="text-xs text-slate-400">
+          Safe text-to-SQL conversational analysis and grounded question answering.
         </p>
       </div>
 
-      {/* Ranked Insights List */}
-      <div className="space-y-4">
-        {insights.map((ins, idx) => (
-          <div
-            key={ins.id}
-            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm space-y-3 hover:border-indigo-400 dark:hover:border-indigo-600 transition"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <span className="w-6 h-6 rounded-full bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 font-mono text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                  #{idx + 1}
-                </span>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug">
-                    {ins.headline}
-                  </h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
-                    {ins.why_it_matters}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                <HonestBadge type={ins.tag} />
-                <span className="text-[10px] font-mono text-slate-400">Score: {ins.score}</span>
-              </div>
-            </div>
-
-            {/* Evidence & Query Formula */}
-            <div className="bg-slate-50 dark:bg-slate-900/60 rounded-xl p-3 border border-slate-100 dark:border-slate-750 text-xs flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <div>
-                <span className="text-slate-400 text-[10px] uppercase font-semibold">Evidence:</span>{" "}
-                <span className="font-semibold text-slate-800 dark:text-slate-200">{ins.evidence}</span>
-              </div>
-              <div className="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 truncate max-w-md">
-                {ins.sql}
-              </div>
-            </div>
-
-            {/* Caveat if present */}
-            {ins.caveat && (
-              <div className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200 dark:border-amber-900">
-                {ins.caveat}
-              </div>
-            )}
-
-            {/* Action Box */}
-            <div className="pt-2 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                <span className="font-semibold text-slate-900 dark:text-white">Recommended Action:</span>
-                <span>{ins.suggested_action}</span>
-              </div>
-              <span className="text-[11px] font-mono text-slate-400">
-                Confidence: {Math.round(ins.confidence * 100)}%
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Actionable Recommendations Tracker */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm space-y-4">
+      {/* "Ask Your Data" Box */}
+      <div className="rounded-2xl p-6 bg-[#101735]/90 border border-slate-800/90 shadow-2xl backdrop-blur-md space-y-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">
-              Strategic Recommendations Tracker
-            </h2>
-            <p className="text-xs text-slate-400">
-              Track decisions from ideation to completion. Monitor the associated outcome metric.
-            </p>
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white">
+              <MessageSquare className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Ask your data in plain English</h3>
+              <p className="text-[11px] text-slate-400">
+                The agent converts your question to verified SQL, computes the exact result, and explains it.
+              </p>
+            </div>
           </div>
-          <HonestBadge type="AI-generated" />
+          <HonestBadge tag="AI-generated" />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {recommendations.map((rec) => (
-            <div
-              key={rec.id}
-              className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-850 flex flex-col justify-between space-y-3"
+        {/* Suggested Chips */}
+        <div className="flex flex-wrap gap-2 pt-1">
+          {suggestedQueries.map((q, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleAsk(q)}
+              className="text-[11px] px-3 py-1 rounded-full bg-slate-900 border border-slate-700/80 hover:border-cyan-500 text-slate-300 hover:text-white transition shadow-sm"
             >
-              <div>
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-semibold text-indigo-600 dark:text-indigo-400 font-mono">
-                    Impact: {rec.impact} • Effort: {rec.effort}
-                  </span>
-                  <span className="text-slate-400 font-mono">{rec.confidence_pct}% Conf.</span>
-                </div>
-                <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-1.5 leading-snug">
-                  {rec.title}
-                </h4>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  Rationale: {rec.rationale}
-                </p>
-              </div>
+              {q}
+            </button>
+          ))}
+        </div>
 
-              <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
-                  {rec.linked_metric || "Metric tracker"}
-                </span>
+        {/* Input box */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAsk()}
+            placeholder="e.g. Which opponent has the highest average?"
+            className="flex-1 bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 shadow-inner"
+          />
+          <button
+            onClick={() => handleAsk()}
+            disabled={asking || !question.trim()}
+            className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:opacity-95 text-white text-xs font-bold rounded-xl shadow-lg shadow-cyan-500/20 flex items-center space-x-2 disabled:opacity-50"
+          >
+            {asking ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            <span>Ask</span>
+          </button>
+        </div>
 
+        {/* Loading Indicator */}
+        {asking && (
+          <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center space-x-3 text-xs text-slate-300 animate-fadeIn">
+            <RefreshCw className="w-4 h-4 animate-spin text-cyan-400 shrink-0" />
+            <span>Analyzing query, verifying SQL schema, and executing against columnar dataset...</span>
+          </div>
+        )}
+
+        {/* Answer Display */}
+        {chatResponse && !asking && (
+          <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3 animate-fadeIn">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-300">
+                Q: <span className="text-white italic">"{chatResponse.question}"</span>
+              </span>
+              <div className="flex items-center space-x-2">
+                {chatResponse.sql && (
+                  <button
+                    onClick={() => setShowSql(!showSql)}
+                    className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white text-xs font-medium transition"
+                  >
+                    <Code className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>{showSql ? "Hide SQL" : "Show SQL"}</span>
+                    {showSql ? <ChevronUp className="w-3 h-3 opacity-60" /> : <ChevronDown className="w-3 h-3 opacity-60" />}
+                  </button>
+                )}
                 <button
-                  onClick={() => handleUpdateStatus(rec.id, rec.status)}
-                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition ${
-                    rec.status === "Done"
-                      ? "bg-emerald-600 text-white"
-                      : rec.status === "Doing"
-                      ? "bg-cyan-600 text-white"
-                      : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
-                  }`}
+                  onClick={handlePin}
+                  className="flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-indigo-950 border border-indigo-700 text-cyan-400 hover:text-white text-xs font-semibold transition"
                 >
-                  {rec.status} (Click to advance)
+                  {pinnedSuccess ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Pin className="w-3.5 h-3.5" />}
+                  <span>{pinnedSuccess ? "Pinned to Dashboard!" : "Pin to Dashboard"}</span>
                 </button>
               </div>
             </div>
-          ))}
-        </div>
+
+            {/* Answer Text */}
+            <p className="text-xs text-slate-200 leading-relaxed font-sans">
+              {chatResponse.answer || chatResponse.explanation}
+            </p>
+
+            {/* Error banner if query failed */}
+            {chatResponse.error && (
+              <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300 space-y-1">
+                <div className="font-semibold flex items-center gap-1.5 text-rose-200">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{chatResponse.friendly_message || "Could not execute query on dataset."}</span>
+                </div>
+                {chatResponse.suggested_fix && (
+                  <div className="text-[11px] text-slate-400">
+                    Suggestion: {chatResponse.suggested_fix}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Grounded SQL Display with Show/Hide toggle */}
+            {chatResponse.sql && showSql && (
+              <div className="p-2.5 rounded-lg bg-slate-900 font-mono text-[11px] text-cyan-400 border border-slate-800 overflow-x-auto space-y-1 animate-fadeIn">
+                <div className="text-[9px] text-slate-400 uppercase tracking-wider font-sans font-bold">Grounded SQL:</div>
+                <div className="text-cyan-300">{chatResponse.sql}</div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

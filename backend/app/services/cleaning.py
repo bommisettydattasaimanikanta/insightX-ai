@@ -198,3 +198,184 @@ class CleaningService:
             "final_rows": len(df_current),
             "final_cols": len(df_current.columns)
         }
+
+    @staticmethod
+    def auto_clean_safe_defaults(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+        """
+        Applies only low-risk safe fixes automatically without user approval:
+        - Trim whitespace in text columns
+        - Fix and cast data types (numeric, dates)
+        - Clean currencies ($ € £ ₹), percentages (%), and Indian numbering (lakhs, crores)
+        - Parse mixed date formats into datetime
+        - Remove blank rows and blank columns
+        - Detect and remove subtotal/grand total summary rows
+        - Standardize text casing
+        - Remove exact duplicate rows
+        
+        High-risk operations (outlier dropping, high-volume imputation, category merging)
+        are flagged as 'suggestions' for review rather than auto-applied.
+        """
+        from backend.app.services.ingestion import clean_indian_or_currency_number, detect_subtotal_rows
+        
+        score_before = calculate_data_quality_score(df)
+        df_clean = df.copy()
+        applied_steps = []
+        suggestions = []
+        
+        # 1. Remove completely blank rows & columns
+        blank_rows = int(df_clean.isna().all(axis=1).sum())
+        if blank_rows > 0:
+            df_clean = df_clean.dropna(how="all").reset_index(drop=True)
+            applied_steps.append({
+                "type": "remove_blank_rows",
+                "title": "Remove Empty Rows",
+                "description": f"Removed {blank_rows} completely empty rows.",
+                "rows_affected": blank_rows
+            })
+            
+        blank_cols = [c for c in df_clean.columns if df_clean[c].isna().all()]
+        if blank_cols:
+            df_clean = df_clean.drop(columns=blank_cols)
+            applied_steps.append({
+                "type": "remove_blank_cols",
+                "title": "Remove Empty Columns",
+                "description": f"Removed {len(blank_cols)} completely empty columns ({', '.join(blank_cols)}).",
+                "rows_affected": len(blank_cols)
+            })
+
+        # 2. Detect & remove subtotal / summary rows
+        try:
+            subtotals = detect_subtotal_rows(df_clean)
+            if subtotals:
+                df_clean = df_clean.drop(index=subtotals).reset_index(drop=True)
+                applied_steps.append({
+                    "type": "remove_subtotals",
+                    "title": "Remove Summary / Subtotal Rows",
+                    "description": f"Detected and removed {len(subtotals)} subtotal/total rows that would skew aggregations.",
+                    "rows_affected": len(subtotals)
+                })
+        except Exception:
+            pass
+
+        # 3. Trim whitespace & standardize text casing
+        for col in df_clean.columns:
+            if df_clean[col].dtype == object:
+                sample_series = df_clean[col].dropna().astype(str)
+                # Whitespace trimming
+                has_spaces = sample_series.str.contains(r"^\s+|\s+$", regex=True).sum()
+                if has_spaces > 0:
+                    df_clean[col] = df_clean[col].apply(lambda x: str(x).strip() if pd.notna(x) else x)
+                    applied_steps.append({
+                        "type": "trim_whitespace",
+                        "title": f"Trim Whitespace in '{col}'",
+                        "description": f"Trimmed leading/trailing whitespace across {has_spaces} entries in '{col}'.",
+                        "rows_affected": int(has_spaces)
+                    })
+                
+                # Standardize casing for low-cardinality text (1 < unique <= 30)
+                n_uniq = df_clean[col].nunique()
+                if 1 < n_uniq <= 30 and not any(k in str(col).lower() for k in ["id", "url", "email", "code", "guid"]):
+                    df_clean[col] = df_clean[col].apply(lambda x: str(x).strip().title() if pd.notna(x) else x)
+                    applied_steps.append({
+                        "type": "standardize_casing",
+                        "title": f"Standardize Casing in '{col}'",
+                        "description": f"Standardized inconsistent casing to Title Case in category column '{col}'.",
+                        "rows_affected": len(df_clean)
+                    })
+
+        # 4. Clean currencies, percentages, and Indian number formats into numeric
+        for col in df_clean.columns:
+            if df_clean[col].dtype == object:
+                sample_non_null = df_clean[col].dropna()
+                if len(sample_non_null) > 0:
+                    cleaned_sample = sample_non_null.apply(clean_indian_or_currency_number)
+                    numeric_count = pd.to_numeric(cleaned_sample, errors="coerce").notna().sum()
+                    if numeric_count / len(sample_non_null) >= 0.7:  # 70%+ numeric after currency/number clean
+                        df_clean[col] = df_clean[col].apply(clean_indian_or_currency_number)
+                        df_clean[col] = pd.to_numeric(df_clean[col], errors="coerce")
+                        applied_steps.append({
+                            "type": "parse_currency_numbers",
+                            "title": f"Format Numbers & Currency in '{col}'",
+                            "description": f"Converted currency symbols, %, and Indian number formats in '{col}' to clean numeric values.",
+                            "rows_affected": int(numeric_count)
+                        })
+
+        # 5. Parse mixed dates
+        for col in df_clean.columns:
+            name_lower = str(col).lower()
+            if df_clean[col].dtype == object and ("date" in name_lower or "time" in name_lower or "day" in name_lower or "period" in name_lower):
+                try:
+                    parsed_dates = pd.to_datetime(df_clean[col], errors="coerce", format="mixed")
+                    if parsed_dates.notna().mean() >= 0.5:
+                        valid_count = int(parsed_dates.notna().sum())
+                        df_clean[col] = parsed_dates
+                        applied_steps.append({
+                            "type": "parse_dates",
+                            "title": f"Parse Dates in '{col}'",
+                            "description": f"Standardized mixed date strings in '{col}' to ISO timestamps ({valid_count} dates converted).",
+                            "rows_affected": valid_count
+                        })
+                except Exception:
+                    pass
+
+        # 6. Remove exact duplicate rows
+        dup_count = int(df_clean.duplicated().sum())
+        if dup_count > 0:
+            df_clean = df_clean.drop_duplicates().reset_index(drop=True)
+            applied_steps.append({
+                "type": "remove_duplicates",
+                "title": "Deduplicate Rows",
+                "description": f"Removed {dup_count} exact duplicate rows.",
+                "rows_affected": dup_count
+            })
+
+        # 7. Collect high-risk actions as suggestions for review (NOT auto-applied)
+        # Check outliers
+        for col in df_clean.columns:
+            if pd.api.types.is_numeric_dtype(df_clean[col]):
+                vals = df_clean[col].dropna()
+                if len(vals) > 10:
+                    q25 = vals.quantile(0.25)
+                    q75 = vals.quantile(0.75)
+                    iqr = q75 - q25
+                    if iqr > 0:
+                        lower_bound = q25 - 1.5 * iqr
+                        upper_bound = q75 + 1.5 * iqr
+                        outlier_count = int(((vals < lower_bound) | (vals > upper_bound)).sum())
+                        if outlier_count > 0:
+                            suggestions.append({
+                                "type": "outlier_review",
+                                "column": col,
+                                "count": outlier_count,
+                                "title": f"Review {outlier_count} Outliers in '{col}'",
+                                "description": f"Found {outlier_count} values outside 1.5x IQR [{round(lower_bound, 2)}, {round(upper_bound, 2)}]. Kept in data to preserve natural variance."
+                            })
+
+        # Check high missingness (> 10%)
+        for col in df_clean.columns:
+            miss_count = int(df_clean[col].isna().sum())
+            if miss_count > 0:
+                pct = round((miss_count / max(1, len(df_clean))) * 100, 1)
+                if pct >= 10.0:
+                    suggestions.append({
+                        "type": "missing_review",
+                        "column": col,
+                        "missing_pct": pct,
+                        "title": f"Missing Values in '{col}' ({pct}%)",
+                        "description": f"Column has {miss_count} missing values ({pct}%). Kept as NULL rather than guessing values."
+                    })
+
+        score_after = calculate_data_quality_score(df_clean)
+
+        return df_clean, {
+            "score_before": score_before,
+            "score_after": score_after,
+            "improvement": round(score_after["overall"] - score_before["overall"], 1),
+            "applied_steps": applied_steps,
+            "suggestions": suggestions,
+            "issues_fixed_count": len(applied_steps),
+            "initial_rows": len(df),
+            "final_rows": len(df_clean),
+            "initial_cols": len(df.columns),
+            "final_cols": len(df_clean.columns)
+        }

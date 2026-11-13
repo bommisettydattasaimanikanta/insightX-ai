@@ -1,0 +1,9 @@
+Region,Product,Revenue,Units,Quarter
+North,Electronics,45000,150,Q1
+South,Furniture,28000,80,Q1
+East,Electronics,52000,190,Q1
+West,Supplies,18500,320,Q1
+North,Furniture,31000,95,Q2
+South,Electronics,49000,165,Q2
+East,Supplies,22000,340,Q2
+West,Furniture,36000,110,Q2
