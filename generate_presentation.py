@@ -2,648 +2,620 @@ import os
 import win32com.client
 from pptx import Presentation
 from pptx.util import Inches, Pt
-from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 
-def create_presentation():
+def build_clean_presentation():
     prs = Presentation()
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
     blank_layout = prs.slide_layouts[6]
 
-    # Executive Color Palette
-    BG_DARK = RGBColor(11, 19, 43)        # #0B132B
-    CARD_BG = RGBColor(26, 38, 70)        # #1A2646
-    CARD_BORDER = RGBColor(56, 80, 130)   # #385082
-    CARD_BG_ALT = RGBColor(18, 28, 54)    # #121C36
-    ACCENT_CYAN = RGBColor(0, 210, 255)   # #00D2FF
-    ACCENT_BLUE = RGBColor(59, 130, 246)  # #3B82F6
-    ACCENT_GREEN = RGBColor(16, 185, 129) # #10B981
-    ACCENT_AMBER = RGBColor(245, 158, 11) # #F59E0B
+    # Executive Clean Dark Palette
+    BG_COLOR = RGBColor(11, 19, 43)        # #0B132B (Deep Navy)
+    CARD_BG = RGBColor(22, 33, 62)         # #16213E (Card background)
+    CARD_BORDER = RGBColor(46, 62, 102)    # #2E3E66 (Card border)
+    ACCENT_CYAN = RGBColor(0, 210, 255)    # #00D2FF (Primary highlight)
+    ACCENT_BLUE = RGBColor(79, 140, 255)   # #4F8CFF (Secondary highlight)
+    ACCENT_GREEN = RGBColor(34, 197, 94)   # #22C55E (Success green)
     TEXT_WHITE = RGBColor(255, 255, 255)
-    TEXT_LIGHT = RGBColor(226, 232, 240)  # #E2E8F0
-    TEXT_MUTED = RGBColor(148, 163, 184)  # #94A3B8
+    TEXT_LIGHT = RGBColor(226, 232, 240)   # #E2E8F0 (Readable text)
+    TEXT_MUTED = RGBColor(148, 163, 184)   # #94A3B8 (Subtitle text)
 
     logo_path = os.path.abspath("extracted_media/image1.png")
-    dash_img = os.path.abspath("fresh_screenshots/01_dashboard.png")
-    pred_img = os.path.abspath("fresh_screenshots/04_predictions.png")
 
-    def set_slide_bg(slide, color):
+    def set_background(slide):
         bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, Inches(13.333), Inches(7.5))
         bg.fill.solid()
-        bg.fill.fore_color.rgb = color
-        bg.line.color.rgb = color
+        bg.fill.fore_color.rgb = BG_COLOR
+        bg.line.color.rgb = BG_COLOR
         return bg
 
-    def add_header(slide, tag_text, title_text, subtitle_text):
-        # Header Tag Pill
-        tag_box = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(0.4), Inches(3.4), Inches(0.35))
-        tag_box.fill.solid()
-        tag_box.fill.fore_color.rgb = CARD_BG
-        tag_box.line.color.rgb = ACCENT_CYAN
-        tag_box.line.width = Pt(1)
-        tf_tag = tag_box.text_frame
-        tf_tag.word_wrap = True
-        tf_tag.margin_top = Inches(0.04)
-        p_tag = tf_tag.paragraphs[0]
-        p_tag.text = tag_text
-        p_tag.font.size = Pt(11)
-        p_tag.font.bold = True
-        p_tag.font.color.rgb = ACCENT_CYAN
-        p_tag.alignment = PP_ALIGN.CENTER
-
-        # Slide Title
-        t_box = slide.shapes.add_textbox(Inches(0.8), Inches(0.8), Inches(11.7), Inches(0.6))
+    def add_clean_header(slide, title_text, subtitle_text):
+        # Clean Slide Title (No Slide Numbers at top)
+        t_box = slide.shapes.add_textbox(Inches(1.0), Inches(0.65), Inches(11.333), Inches(0.65))
         tf_t = t_box.text_frame
         tf_t.word_wrap = True
         p_t = tf_t.paragraphs[0]
         p_t.text = title_text
-        p_t.font.size = Pt(24)
+        p_t.font.size = Pt(28)
         p_t.font.bold = True
         p_t.font.color.rgb = TEXT_WHITE
 
-        # Slide Subtitle
-        s_box = slide.shapes.add_textbox(Inches(0.8), Inches(1.35), Inches(11.7), Inches(0.4))
+        # Subtitle in simple words
+        s_box = slide.shapes.add_textbox(Inches(1.0), Inches(1.3), Inches(11.333), Inches(0.45))
         tf_s = s_box.text_frame
         tf_s.word_wrap = True
         p_s = tf_s.paragraphs[0]
         p_s.text = subtitle_text
-        p_s.font.size = Pt(13)
+        p_s.font.size = Pt(14)
         p_s.font.color.rgb = TEXT_MUTED
 
-    def add_card(slide, left, top, width, height, title, points, accent_color=ACCENT_CYAN, title_size=16, body_size=12):
-        # Card container
+        # Thin clean divider line
+        line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(1.0), Inches(1.8), Inches(11.333), Inches(0.02))
+        line.fill.solid()
+        line.fill.fore_color.rgb = CARD_BORDER
+        line.line.color.rgb = CARD_BORDER
+
+    def add_grid_card(slide, left, top, width, height, side_heading, points, accent_color=ACCENT_CYAN):
+        # Card background box
         card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
         card.fill.solid()
         card.fill.fore_color.rgb = CARD_BG
         card.line.color.rgb = CARD_BORDER
         card.line.width = Pt(1.2)
 
-        # Top accent bar
-        bar = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, Inches(0.08))
-        bar.fill.solid()
-        bar.fill.fore_color.rgb = accent_color
-        bar.line.color.rgb = accent_color
+        # Left accent vertical indicator strip
+        strip = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, Inches(0.08), height)
+        strip.fill.solid()
+        strip.fill.fore_color.rgb = accent_color
+        strip.line.color.rgb = accent_color
 
-        # Card Text Frame
-        tx_box = slide.shapes.add_textbox(left + Inches(0.25), top + Inches(0.18), width - Inches(0.5), height - Inches(0.3))
+        # Text Frame
+        tx_box = slide.shapes.add_textbox(left + Inches(0.25), top + Inches(0.18), width - Inches(0.45), height - Inches(0.3))
         tf = tx_box.text_frame
         tf.word_wrap = True
 
-        p_title = tf.paragraphs[0]
-        p_title.text = title
-        p_title.font.size = Pt(title_size)
-        p_title.font.bold = True
-        p_title.font.color.rgb = TEXT_WHITE
-        p_title.space_after = Pt(10)
+        # Side Heading
+        p_head = tf.paragraphs[0]
+        p_head.text = side_heading
+        p_head.font.size = Pt(17)
+        p_head.font.bold = True
+        p_head.font.color.rgb = accent_color
+        p_head.space_after = Pt(8)
 
+        # Content lines
         for pt in points:
             p = tf.add_paragraph()
             p.text = "• " + pt
-            p.font.size = Pt(body_size)
+            p.font.size = Pt(13)
             p.font.color.rgb = TEXT_LIGHT
-            p.space_after = Pt(6)
+            p.space_after = Pt(4)
 
         return card
 
     # ==========================================
-    # SLIDE 1: Front / Title Slide
+    # SLIDE 1: InsightX AI (Title Slide)
     # ==========================================
     s1 = prs.slides.add_slide(blank_layout)
-    set_slide_bg(s1, BG_DARK)
+    set_background(s1)
 
-    # University Logo
     if os.path.exists(logo_path):
-        s1.shapes.add_picture(logo_path, Inches(0.8), Inches(0.6), height=Inches(0.9))
+        s1.shapes.add_picture(logo_path, Inches(1.0), Inches(0.7), height=Inches(0.95))
 
-    # Project Pill
-    pill1 = s1.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(1.8), Inches(5.5), Inches(0.4))
-    pill1.fill.solid()
-    pill1.fill.fore_color.rgb = CARD_BG
-    pill1.line.color.rgb = ACCENT_CYAN
-    p_pill = pill1.text_frame.paragraphs[0]
-    p_pill.text = "INDUSTRIAL TRAINING CAPSTONE PROJECT PRESENTATION"
-    p_pill.font.size = Pt(11)
-    p_pill.font.bold = True
-    p_pill.font.color.rgb = ACCENT_CYAN
-    p_pill.alignment = PP_ALIGN.CENTER
-
-    # Project Title
-    t_box1 = s1.shapes.add_textbox(Inches(0.8), Inches(2.35), Inches(11.7), Inches(1.1))
-    p1 = t_box1.text_frame.paragraphs[0]
+    # Main Project Title
+    t1 = s1.shapes.add_textbox(Inches(1.0), Inches(1.9), Inches(11.3), Inches(1.1))
+    p1 = t1.text_frame.paragraphs[0]
     p1.text = "InsightX AI"
     p1.font.size = Pt(46)
     p1.font.bold = True
     p1.font.color.rgb = ACCENT_CYAN
 
     # Subtitle
-    sub_box1 = s1.shapes.add_textbox(Inches(0.8), Inches(3.45), Inches(11.7), Inches(0.6))
-    p_sub1 = sub_box1.text_frame.paragraphs[0]
-    p_sub1.text = "Autonomous AI Data Analyst & Predictive Decision Intelligence Platform"
-    p_sub1.font.size = Pt(20)
-    p_sub1.font.color.rgb = TEXT_LIGHT
+    sub1 = s1.shapes.add_textbox(Inches(1.0), Inches(2.95), Inches(11.3), Inches(0.6))
+    psub1 = sub1.text_frame.paragraphs[0]
+    psub1.text = "Autonomous AI Data Analyst & Decision Platform"
+    psub1.font.size = Pt(22)
+    psub1.font.color.rgb = TEXT_LIGHT
 
-    # Two Bottom Information Cards
-    # Left: Student Details
-    add_card(
+    # Two Clean Bottom Cards
+    add_grid_card(
         s1,
-        left=Inches(0.8), top=Inches(4.3), width=Inches(5.7), height=Inches(2.6),
-        title="Student Details",
+        left=Inches(1.0), top=Inches(3.9), width=Inches(5.4), height=Inches(2.8),
+        side_heading="Student Information",
         points=[
-            "Presented By: B. Datta Sai Manikanta",
-            "University Roll No / Reg No: 72311633",
-            "Program: B.Tech Computer Science and Engineering (AI & DS)",
-            "Institution: CT University, Ludhiana (Punjab), India"
+            "Name: B. Datta Sai Manikanta",
+            "Registration No: 72311633",
+            "Branch: B.Tech CSE (AI & DS)",
+            "College: CT University, Ludhiana (Punjab)"
         ],
-        accent_color=ACCENT_CYAN,
-        title_size=17,
-        body_size=13
+        accent_color=ACCENT_CYAN
     )
 
-    # Right: Industry Training Details
-    add_card(
+    add_grid_card(
         s1,
-        left=Inches(6.8), top=Inches(4.3), width=Inches(5.7), height=Inches(2.6),
-        title="Training & Supervisor Details",
+        left=Inches(6.9), top=Inches(3.9), width=Inches(5.4), height=Inches(2.8),
+        side_heading="Project & Internship Details",
         points=[
-            "Training Organization: DataValley Pvt. Ltd. (collab with APSCHE)",
-            "Internship Supervisor: Mr. Shaik Arshad / Shaik Nazeerb",
-            "Core Technologies: FastAPI, React 18, DuckDB, scikit-learn, XGBoost",
-            "GitHub: github.com/bommisettydattasaimanikanta/insightX-ai"
+            "Training Partner: DataValley Pvt. Ltd. (APSCHE)",
+            "Supervisor: Mr. Shaik Arshad / Shaik Nazeerb",
+            "Project Type: Capstone Industrial Training",
+            "Code: github.com/bommisettydattasaimanikanta/insightX-ai"
         ],
-        accent_color=ACCENT_BLUE,
-        title_size=17,
-        body_size=13
+        accent_color=ACCENT_BLUE
     )
 
     s1.notes_slide.notes_text_frame.text = (
-        "Good morning respected evaluators. My name is B. Datta Sai Manikanta, Registration Number 72311633, "
-        "from CT University. Today, I am presenting InsightX AI, an autonomous AI data analyst and decision "
-        "intelligence platform developed during my industrial training at DataValley Pvt. Ltd."
+        "Good morning respected professors. My name is B. Datta Sai Manikanta, Registration Number 72311633, "
+        "from CT University. Today I will present my project, InsightX AI – an autonomous AI data analyst "
+        "platform that turns raw data into interactive dashboards in under 60 seconds."
     )
 
     # ==========================================
-    # SLIDE 2: Problem Statement & Motivation
+    # SLIDE 2: Problem Statement
     # ==========================================
     s2 = prs.slides.add_slide(blank_layout)
-    set_slide_bg(s2, BG_DARK)
-    add_header(s2, "SLIDE 02 | PROBLEM STATEMENT", "The Analytics Bottleneck & AI Hallucination Risk",
-               "Traditional Business Intelligence is too slow, and generic LLMs hallucinate inaccurate numbers.")
+    set_background(s2)
+    add_clean_header(s2, "Problem Statement", "Why traditional data analysis is slow and painful for businesses today.")
 
-    add_card(
+    add_grid_card(
         s2,
-        left=Inches(0.8), top=Inches(1.95), width=Inches(3.7), height=Inches(4.9),
-        title="1. Messy Raw Data",
+        left=Inches(1.0), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="1. Messy Data Everywhere",
         points=[
-            "Spreadsheets contain missing values, mixed date formats, and duplicates.",
-            "Analysts waste 80% of their work hours just cleaning and formatting data.",
-            "Manual data preparation delays time-critical business decisions by days."
+            "Most raw Excel files have missing values, wrong dates, and duplicate rows.",
+            "Files must be cleaned before anyone can make charts or reports."
         ],
-        accent_color=ACCENT_AMBER,
-        title_size=16, body_size=12
+        accent_color=ACCENT_CYAN
     )
 
-    add_card(
+    add_grid_card(
         s2,
-        left=Inches(4.8), top=Inches(1.95), width=Inches(3.7), height=Inches(4.9),
-        title="2. The Hallucination Risk",
+        left=Inches(6.9), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="2. Manual Cleaning is Too Slow",
         points=[
-            "General-purpose LLMs (like ChatGPT) cannot perform deterministic arithmetic.",
-            "Chatbots invent plausible but fake sales figures, percentages, and totals.",
-            "In enterprise finance or healthcare, hallucinated data causes severe loss."
+            "Data analysts waste 80% of their working hours just cleaning spreadsheets.",
+            "Important business decisions get delayed by several days or weeks."
         ],
-        accent_color=ACCENT_CYAN,
-        title_size=16, body_size=12
+        accent_color=ACCENT_BLUE
     )
 
-    add_card(
+    add_grid_card(
         s2,
-        left=Inches(8.8), top=Inches(1.95), width=Inches(3.7), height=Inches(4.9),
-        title="3. High Technical Barrier",
+        left=Inches(1.0), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="3. Normal AI Gives Wrong Numbers",
         points=[
-            "Business managers cannot write complex SQL queries or Python scripts.",
-            "Constant dependency on busy data engineering teams causes delays.",
-            "Companies need a self-service tool that delivers trusted answers in seconds."
+            "General chatbots like ChatGPT make up fake numbers and calculations.",
+            "In business and finance, wrong numbers can lead to huge financial losses."
         ],
-        accent_color=ACCENT_BLUE,
-        title_size=16, body_size=12
+        accent_color=ACCENT_CYAN
+    )
+
+    add_grid_card(
+        s2,
+        left=Inches(6.9), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="4. Coding is Hard for Managers",
+        points=[
+            "Business managers cannot write complex SQL queries or Python code.",
+            "They always depend on technical data teams for even small reports."
+        ],
+        accent_color=ACCENT_BLUE
     )
 
     s2.notes_slide.notes_text_frame.text = (
-        "There are three major industry challenges: First, 80% of analyst time is wasted cleaning messy files. "
-        "Second, if you feed raw data to generic AI chatbots, they hallucinate fake numbers because LLMs are not calculators. "
-        "Third, business managers cannot write SQL or Python. InsightX AI directly addresses all three pain points."
+        "Every company faces four big problems: First, raw data is very messy. Second, data analysts waste 80% of their "
+        "time just cleaning files manually. Third, generic AI tools like ChatGPT hallucinate and make up wrong numbers. "
+        "Fourth, managers cannot write SQL or Python code. InsightX AI solves all these problems."
     )
 
     # ==========================================
-    # SLIDE 3: Introduction to InsightX AI
+    # SLIDE 3: Platform Overview
     # ==========================================
     s3 = prs.slides.add_slide(blank_layout)
-    set_slide_bg(s3, BG_DARK)
-    add_header(s3, "SLIDE 03 | PLATFORM OVERVIEW", "Introducing InsightX AI: The Autonomous Analyst",
-               "End-to-end data intelligence from raw upload to interactive dashboards and predictions in under 60 seconds.")
+    set_background(s3)
+    add_clean_header(s3, "Platform Overview", "What InsightX AI does and how it helps anyone analyze data instantly.")
 
-    add_card(
+    add_grid_card(
         s3,
-        left=Inches(0.8), top=Inches(1.95), width=Inches(5.7), height=Inches(2.35),
-        title="What is InsightX AI?",
+        left=Inches(1.0), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="1. What is InsightX AI?",
         points=[
-            "An autonomous platform automating data cleaning, analytics, and modeling.",
-            "Ingests CSV, Excel, Parquet, or connects directly to live SQL databases.",
-            "Zero coding required: business users get executive answers immediately."
+            "An autonomous platform that does the complete job of a data analyst.",
+            "Turns raw data into clean charts and predictions in under 60 seconds."
         ],
-        accent_color=ACCENT_CYAN,
-        title_size=15, body_size=12
+        accent_color=ACCENT_CYAN
     )
 
-    add_card(
+    add_grid_card(
         s3,
-        left=Inches(0.8), top=Inches(4.45), width=Inches(5.7), height=Inches(2.4),
-        title="Guiding Principle: Code Computes, AI Explains",
+        left=Inches(6.9), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="2. Simple Drag & Drop",
         points=[
-            "The AI never calculates numbers; all math is executed by DuckDB SQL & SciPy.",
-            "The LLM only interprets verified numbers and generates strategic advice.",
-            "Transparent provenance badges: [Computed], [ML prediction], [Statistical test]."
+            "Just upload any Excel or CSV file without writing a single line of code.",
+            "The platform automatically reads columns, cleans errors, and builds charts."
         ],
-        accent_color=ACCENT_GREEN,
-        title_size=15, body_size=12
+        accent_color=ACCENT_BLUE
     )
 
-    # Embed Dashboard Preview Screenshot on right
-    if os.path.exists(dash_img):
-        # Card frame for picture
-        img_card = s3.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(6.8), Inches(1.95), Inches(5.7), Inches(4.9))
-        img_card.fill.solid()
-        img_card.fill.fore_color.rgb = CARD_BG
-        img_card.line.color.rgb = CARD_BORDER
-        img_card.line.width = Pt(1.2)
-        s3.shapes.add_picture(dash_img, Inches(6.9), Inches(2.2), width=Inches(5.5))
-        # Label below image
-        lbl = s3.shapes.add_textbox(Inches(6.9), Inches(6.3), Inches(5.5), Inches(0.4))
-        p_lbl = lbl.text_frame.paragraphs[0]
-        p_lbl.text = "InsightX AI Live Interactive Executive Dashboard"
-        p_lbl.font.size = Pt(11)
-        p_lbl.font.bold = True
-        p_lbl.font.color.rgb = ACCENT_CYAN
-        p_lbl.alignment = PP_ALIGN.CENTER
+    add_grid_card(
+        s3,
+        left=Inches(1.0), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="3. Accurate Numbers (No Guessing)",
+        points=[
+            "Our core rule: 'Code Computes, AI Explains'.",
+            "Real SQL code calculates all totals and averages; the AI never guesses math."
+        ],
+        accent_color=ACCENT_GREEN
+    )
+
+    add_grid_card(
+        s3,
+        left=Inches(6.9), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="4. Clear English Explanations",
+        points=[
+            "The AI explains every chart and trend in simple, understandable English.",
+            "Managers get clear recommendations on how to improve business results."
+        ],
+        accent_color=ACCENT_CYAN
+    )
 
     s3.notes_slide.notes_text_frame.text = (
-        "InsightX AI is an autonomous AI analyst. You upload any messy dataset, and within 60 seconds it produces "
-        "clean data, an interactive dashboard, and machine learning models. Our core rule is 'Code Computes, AI Explains' – "
-        "every number is verified by deterministic SQL code, while the LLM generates plain-English insights."
+        "InsightX AI is an autonomous data analyst platform. You simply drag and drop any Excel or CSV file. "
+        "Within 60 seconds, it cleans the data, runs real SQL calculations, and builds an interactive dashboard. "
+        "Our golden rule is 'Code Computes, AI Explains' – so numbers are 100% accurate, and the AI explains them in plain English."
     )
 
     # ==========================================
-    # SLIDE 4: System Architecture & Workflow
+    # SLIDE 4: System Architecture
     # ==========================================
     s4 = prs.slides.add_slide(blank_layout)
-    set_slide_bg(s4, BG_DARK)
-    add_header(s4, "SLIDE 04 | SYSTEM ARCHITECTURE", "High-Performance 3-Tier Architecture & Workflow",
-               "Built with modern web frameworks, columnar query engines, and immutable Parquet storage.")
+    set_background(s4)
+    add_clean_header(s4, "System Architecture", "How the system is built across Frontend, Backend, and Storage.")
 
-    add_card(
+    add_grid_card(
         s4,
-        left=Inches(0.8), top=Inches(1.95), width=Inches(3.7), height=Inches(4.9),
-        title="1. Frontend UI Layer",
+        left=Inches(1.0), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="1. User Interface (Frontend)",
         points=[
-            "React 18 & Vite: Ultra-responsive, smooth user experience.",
-            "TypeScript: Strict type safety preventing runtime crashes.",
-            "Apache ECharts: Declarative charts, heatmaps, and trendlines.",
-            "Tailwind CSS: High-contrast executive dark mode."
+            "Built with React 18, TypeScript, and Tailwind CSS for a modern dark look.",
+            "Uses Apache ECharts for smooth, interactive charts with click and zoom."
         ],
-        accent_color=ACCENT_CYAN,
-        title_size=16, body_size=12
+        accent_color=ACCENT_CYAN
     )
 
-    add_card(
+    add_grid_card(
         s4,
-        left=Inches(4.8), top=Inches(1.95), width=Inches(3.7), height=Inches(4.9),
-        title="2. Backend & Compute",
+        left=Inches(6.9), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="2. Processing Engine (Backend)",
         points=[
-            "FastAPI (Python 3.11): High-speed asynchronous REST endpoints.",
-            "DuckDB In-Memory: Columnar OLAP engine executing queries in 8.2ms.",
-            "sqlglot AST Gate: Blocks dangerous SQL injections and mutations.",
-            "Scikit-learn & XGBoost: Real-time predictive modeling."
+            "Built with Python 3.11 and FastAPI for high-speed API connections.",
+            "Uses DuckDB database to execute analytical SQL queries in milliseconds."
         ],
-        accent_color=ACCENT_BLUE,
-        title_size=16, body_size=12
+        accent_color=ACCENT_BLUE
     )
 
-    add_card(
+    add_grid_card(
         s4,
-        left=Inches(8.8), top=Inches(1.95), width=Inches(3.7), height=Inches(4.9),
-        title="3. Storage & Lake Layer",
+        left=Inches(1.0), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="3. Safe Data Storage (Data Lake)",
         points=[
-            "Immutable Parquet Lake: Raw uploads are never overwritten.",
-            "Versioned Transformation: Full diff, undo, and restore capability.",
-            "SQLite Metadata: Manages user auth, workspaces, and audit trails.",
-            "Single Semantic Registry: Unifies metrics across the platform."
+            "Stores files in fast, compressed Parquet format.",
+            "Original files are never deleted or modified; full undo and restore is supported."
         ],
-        accent_color=ACCENT_GREEN,
-        title_size=16, body_size=12
+        accent_color=ACCENT_GREEN
+    )
+
+    add_grid_card(
+        s4,
+        left=Inches(6.9), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="4. Built-in Security Firewall",
+        points=[
+            "Checks every SQL query before running it on the database.",
+            "Blocks harmful commands like DROP, DELETE, or UPDATE to protect your data."
+        ],
+        accent_color=ACCENT_CYAN
     )
 
     s4.notes_slide.notes_text_frame.text = (
-        "Our architecture has three layers: First, a React 18 and Apache ECharts frontend. "
-        "Second, a FastAPI backend with DuckDB that runs SQL queries in just 8 milliseconds, protected by a sqlglot security gate. "
-        "Third, an immutable Parquet data lake where raw data is never destroyed, allowing complete version control and rollback."
+        "Our architecture has three main parts: A React 18 frontend with Apache ECharts for interactive visualizations; "
+        "a Python FastAPI backend with DuckDB that calculates queries in just a few milliseconds; and a safe Parquet data lake "
+        "where original files are never overwritten. A security parser automatically blocks any dangerous SQL commands."
     )
 
     # ==========================================
-    # SLIDE 5: Core Features & Capabilities
+    # SLIDE 5: Key Features
     # ==========================================
     s5 = prs.slides.add_slide(blank_layout)
-    set_slide_bg(s5, BG_DARK)
-    add_header(s5, "SLIDE 05 | CORE CAPABILITIES", "Four Intelligent Pillars of InsightX AI",
-               "Automating the complete analytics lifecycle from data hygiene to predictive decision support.")
+    set_background(s5)
+    add_clean_header(s5, "Key Features", "Four powerful capabilities that make data analysis fast and effortless.")
 
-    add_card(
+    add_grid_card(
         s5,
-        left=Inches(0.8), top=Inches(1.95), width=Inches(5.7), height=Inches(2.35),
-        title="1. Automated Data Cleaning Studio",
+        left=Inches(1.0), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="1. Automatic Data Cleaning",
         points=[
-            "Calculates a real-time Data Quality Health Score (0 to 100%).",
-            "Auto-fixes mixed date formats, strips symbols, and handles null values.",
-            "Autopilot mode for 1-click speed or Review mode with row-impact previews."
+            "Gives a 0 to 100 Data Quality Health Score instantly upon upload.",
+            "Automatically fixes date formats, removes duplicates, and fills missing values."
         ],
-        accent_color=ACCENT_AMBER,
-        title_size=15, body_size=12
+        accent_color=ACCENT_CYAN
     )
 
-    add_card(
+    add_grid_card(
         s5,
-        left=Inches(6.8), top=Inches(1.95), width=Inches(5.7), height=Inches(2.35),
-        title="2. Grounded Semantic Layer",
+        left=Inches(6.9), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="2. Ask Questions in Plain English",
         points=[
-            "Automatically identifies business dimensions, metrics, and KPI definitions.",
-            "Single source of truth: ensures dashboards, chat, and reports match 100%.",
-            "Eliminates departmental disputes over how metrics (like profit) are defined."
+            "Type questions like 'What are top 5 products by revenue?' to get instant answers.",
+            "Converts your English question into safe SQL and creates charts automatically."
         ],
-        accent_color=ACCENT_CYAN,
-        title_size=15, body_size=12
+        accent_color=ACCENT_BLUE
     )
 
-    add_card(
+    add_grid_card(
         s5,
-        left=Inches(0.8), top=Inches(4.45), width=Inches(5.7), height=Inches(2.4),
-        title="3. Safe Text-to-SQL Assistant",
+        left=Inches(1.0), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="3. 1-Click Machine Learning",
         points=[
-            "Type plain English questions (e.g., 'What are top 5 regions by profit?').",
-            "AST Parser guarantees read-only access: DROP, DELETE, and UPDATE are blocked.",
-            "Every metric card contains a 'Show how' link showing the exact SQL formula."
+            "Trains prediction models (Random Forest & XGBoost) with a single button click.",
+            "Shows which factors (like price or discount) most strongly drive sales."
         ],
-        accent_color=ACCENT_BLUE,
-        title_size=15, body_size=12
+        accent_color=ACCENT_GREEN
     )
 
-    add_card(
+    add_grid_card(
         s5,
-        left=Inches(6.8), top=Inches(4.45), width=Inches(5.7), height=Inches(2.4),
-        title="4. Automated ML & Scenario Simulator",
+        left=Inches(6.9), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="4. What-If Business Simulator",
         points=[
-            "1-Click AutoML: Automatically selects best model (Random Forest, XGBoost).",
-            "Feature Importance Ranking: Discovers primary drivers of business outcomes.",
-            "What-If Simulator: Interactively adjust variables to forecast future revenue."
+            "Move sliders to test scenarios like 'What if we increase discount by 5%?'.",
+            "Instantly forecasts the impact on sales and profit before making real changes."
         ],
-        accent_color=ACCENT_GREEN,
-        title_size=15, body_size=12
+        accent_color=ACCENT_CYAN
     )
 
     s5.notes_slide.notes_text_frame.text = (
-        "Here are the four pillars: 1) Auto Cleaning with a 0 to 100 quality score. 2) A Unified Semantic Layer "
-        "ensuring all metrics stay consistent. 3) Safe Text-to-SQL that lets users ask questions in natural language "
-        "without SQL injection risks. 4) Automated ML and What-If simulation for future forecasting."
+        "Here are the four key features: First, automatic data cleaning with a 0 to 100 quality score. "
+        "Second, natural language chat where you can ask questions in plain English. Third, one-click machine learning "
+        "to forecast future trends. Fourth, an interactive what-if simulator to test business decisions before applying them."
     )
 
     # ==========================================
-    # SLIDE 6: Key Technologies Used
+    # SLIDE 6: Technologies Used
     # ==========================================
     s6 = prs.slides.add_slide(blank_layout)
-    set_slide_bg(s6, BG_DARK)
-    add_header(s6, "SLIDE 06 | TECHNOLOGY STACK", "Modern, Production-Ready Technology Stack",
-               "Engineered with industry-standard, robust technologies across the full stack.")
+    set_background(s6)
+    add_clean_header(s6, "Technologies Used", "Simple, modern, and reliable tools chosen for speed and accuracy.")
 
-    add_card(
+    add_grid_card(
         s6,
-        left=Inches(0.8), top=Inches(1.95), width=Inches(3.7), height=Inches(4.9),
-        title="Frontend Engineering",
+        left=Inches(1.0), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="1. Frontend Technologies",
         points=[
-            "React 18: Modern component state management & virtual DOM.",
-            "TypeScript: Static typing for zero runtime interface errors.",
-            "Vite: Ultra-fast hot module replacement & bundling.",
-            "Apache ECharts: Interactive charts with zoom and tooltips.",
-            "Tailwind CSS: Responsive, clean layout and dark theme.",
-            "Lucide Icons: Modern minimalist icon system."
+            "React 18 & Vite: For creating a fast, responsive user interface.",
+            "TypeScript: Ensures code has no errors and runs smoothly.",
+            "Apache ECharts: Renders beautiful interactive business charts."
         ],
-        accent_color=ACCENT_CYAN,
-        title_size=16, body_size=12
+        accent_color=ACCENT_CYAN
     )
 
-    add_card(
+    add_grid_card(
         s6,
-        left=Inches(4.8), top=Inches(1.95), width=Inches(3.7), height=Inches(4.9),
-        title="Backend & Analytics",
+        left=Inches(6.9), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="2. Backend & Data Engine",
         points=[
-            "Python 3.11: High performance asynchronous core runtime.",
-            "FastAPI: Modern async REST API framework with docs.",
-            "DuckDB: Columnar in-memory analytical SQL engine.",
-            "sqlglot: Secure AST parser for SQL validation.",
-            "PyArrow & Pandas: Fast, memory-efficient data processing.",
-            "SQLAlchemy & SQLite: Persistent metadata and audit logging."
+            "Python 3.11 & FastAPI: Handles backend requests quickly.",
+            "DuckDB: Ultra-fast in-memory database built for big data analytics.",
+            "SQLite: Saves user accounts, workspaces, and history."
         ],
-        accent_color=ACCENT_BLUE,
-        title_size=16, body_size=12
+        accent_color=ACCENT_BLUE
     )
 
-    add_card(
+    add_grid_card(
         s6,
-        left=Inches(8.8), top=Inches(1.95), width=Inches(3.7), height=Inches(4.9),
-        title="AI, ML & Quality",
+        left=Inches(1.0), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="3. Machine Learning & AI",
         points=[
-            "Scikit-learn: Classification, regression, and preprocessing.",
-            "XGBoost: Gradient boosting for high-accuracy predictions.",
-            "Statsmodels: Time-series forecasting and trendlines.",
-            "Swappable LLMs: Google Gemini, OpenAI, Claude adapters.",
-            "ReportLab: Native automated PDF executive summary exporter.",
-            "Pytest & Playwright: Comprehensive test automation."
+            "Scikit-Learn & XGBoost: Trains fast, accurate prediction models.",
+            "Google Gemini AI: Writes simple summaries and business insights.",
+            "sqlglot: Validates SQL to block hacking or unwanted modifications."
         ],
-        accent_color=ACCENT_GREEN,
-        title_size=16, body_size=12
+        accent_color=ACCENT_GREEN
+    )
+
+    add_grid_card(
+        s6,
+        left=Inches(6.9), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="4. Export & Reports",
+        points=[
+            "ReportLab: Downloads a 1-page executive summary PDF with 1 click.",
+            "Jupyter Notebook: Exports complete Python code for data scientists.",
+            "Pytest: Automated test suite ensuring everything works reliably."
+        ],
+        accent_color=ACCENT_CYAN
     )
 
     s6.notes_slide.notes_text_frame.text = (
-        "We chose industry-standard tools: React 18, TypeScript, and Apache ECharts on the frontend; "
-        "FastAPI and DuckDB on the backend for blazing fast columnar queries; and Scikit-learn, XGBoost, and "
-        "swappable LLM adapters for machine learning and natural language explanations."
+        "We used proven technologies: React and Apache ECharts on the frontend for smooth charts; "
+        "Python FastAPI and DuckDB on the backend for ultra-fast calculations; Scikit-learn and XGBoost for predictions; "
+        "and Google Gemini to explain the insights in simple English."
     )
 
     # ==========================================
-    # SLIDE 7: Experimental Results & Benchmarks
+    # SLIDE 7: Results & Performance
     # ==========================================
     s7 = prs.slides.add_slide(blank_layout)
-    set_slide_bg(s7, BG_DARK)
-    add_header(s7, "SLIDE 07 | VALIDATION & BENCHMARKS", "Rigorous Performance Benchmarks & Results",
-               "Tested on 30 complex analytical queries and real-world messy enterprise datasets.")
+    set_background(s7)
+    add_clean_header(s7, "Results & Performance", "Real test results proving high speed, accuracy, and security.")
 
-    # 3 Stat Cards on Left
-    add_card(
+    add_grid_card(
         s7,
-        left=Inches(0.8), top=Inches(1.95), width=Inches(3.6), height=Inches(1.5),
-        title="100.0% Pass Rate",
-        points=["Text-to-SQL Benchmark (30 of 30 queries passed perfectly)."],
-        accent_color=ACCENT_GREEN,
-        title_size=18, body_size=11
-    )
-
-    add_card(
-        s7,
-        left=Inches(0.8), top=Inches(3.65), width=Inches(3.6), height=Inches(1.5),
-        title="8.2 ms Latency",
-        points=["Average SQL query execution time using DuckDB in-memory engine."],
-        accent_color=ACCENT_CYAN,
-        title_size=18, body_size=11
-    )
-
-    add_card(
-        s7,
-        left=Inches(0.8), top=Inches(5.35), width=Inches(3.6), height=Inches(1.5),
-        title="< 2.0s AutoML",
-        points=["Rapid model training and feature ranking on 10,000+ data rows."],
-        accent_color=ACCENT_BLUE,
-        title_size=18, body_size=11
-    )
-
-    # Detailed Summary Card on Right
-    add_card(
-        s7,
-        left=Inches(4.7), top=Inches(1.95), width=Inches(7.8), height=Inches(4.9),
-        title="Key Benchmark Achievements & Security Gates",
+        left=Inches(1.0), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="1. 100% Accuracy on SQL Benchmark",
         points=[
-            "Text-to-SQL Benchmark: 30 analytical test cases covering aggregations, multi-column groupings, time-series windows, and top-K rankings all passed successfully.",
-            "Security Verification: 100% of injected SQL attack payloads (DROP TABLE, INSERT, OR 1=1) were trapped and blocked by the AST firewall.",
-            "End-to-End Pipeline Efficiency: From raw upload to schema cleaning, semantic mapping, and interactive dashboard synthesis in under 60 seconds.",
-            "Non-Destructive Storage: Successfully verified 100% data integrity with immutable Parquet lake versioning, diff calculation, and instant rollback.",
-            "High User Satisfaction: Simple, honest labels ([Computed], [ML prediction]) ensure business users trust the numbers without fear of AI hallucination."
+            "Tested with 30 realistic business questions (sales, rankings, date ranges).",
+            "All 30 out of 30 queries passed perfectly with 100% correct answers."
         ],
-        accent_color=ACCENT_CYAN,
-        title_size=16, body_size=12
+        accent_color=ACCENT_GREEN
+    )
+
+    add_grid_card(
+        s7,
+        left=Inches(6.9), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="2. Blazing Fast Speed (8.2 ms)",
+        points=[
+            "Average query execution time is only 8.2 milliseconds using DuckDB.",
+            "Dashboards load instantly even when analyzing large datasets."
+        ],
+        accent_color=ACCENT_CYAN
+    )
+
+    add_grid_card(
+        s7,
+        left=Inches(1.0), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="3. Sub-2 Second Machine Learning",
+        points=[
+            "Trains complete predictive models in under 2 seconds on 10,000+ rows.",
+            "Instantly ranks which factors most heavily impact business outcomes."
+        ],
+        accent_color=ACCENT_BLUE
+    )
+
+    add_grid_card(
+        s7,
+        left=Inches(6.9), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="4. 100% Secure Against Attacks",
+        points=[
+            "All SQL injection attack attempts were detected and blocked by the parser.",
+            "Original data remained 100% safe and intact with zero accidental deletes."
+        ],
+        accent_color=ACCENT_GREEN
     )
 
     s7.notes_slide.notes_text_frame.text = (
-        "We tested InsightX AI thoroughly: Our Safe Text-to-SQL engine achieved a 100% pass rate across 30 analytical "
-        "queries with an average latency of only 8.2 milliseconds. AutoML models train in under 2 seconds. Furthermore, "
-        "our security gate successfully blocked 100% of SQL injection attempts."
+        "We tested the platform rigorously: Our SQL query engine achieved 100% accuracy on all 30 benchmark questions. "
+        "Thanks to DuckDB, queries take just 8 milliseconds. Machine learning models train in under 2 seconds, "
+        "and 100% of malicious SQL injections were blocked safely."
     )
 
     # ==========================================
-    # SLIDE 8: Future Enhancements & Business Impact
+    # SLIDE 8: Future Scope
     # ==========================================
     s8 = prs.slides.add_slide(blank_layout)
-    set_slide_bg(s8, BG_DARK)
-    add_header(s8, "SLIDE 08 | FUTURE SCOPE & IMPACT", "Future Roadmap & Industry Value Proposition",
-               "Expanding connectivity and democratizing data intelligence for modern enterprises.")
+    set_background(s8)
+    add_clean_header(s8, "Future Scope", "Upcoming improvements and the positive impact on business teams.")
 
-    add_card(
+    add_grid_card(
         s8,
-        left=Inches(0.8), top=Inches(1.95), width=Inches(5.7), height=Inches(4.9),
-        title="Future Engineering Roadmap",
+        left=Inches(1.0), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="1. Live Streaming Data",
         points=[
-            "Real-Time Stream Processing: Integrating Apache Kafka for live IoT, logistics, and stock market telemetry.",
-            "Cloud Warehouse Connectors: Direct connectors for Snowflake, Google BigQuery, AWS Redshift, and Databricks.",
-            "Voice-Activated Analytics: Speech-to-SQL conversational interface for executives on mobile devices.",
-            "Collaborative Workspaces: Multi-user shared dashboards with live commenting and role-based access control.",
-            "Advanced Deep Learning: Adding LSTM and Transformer-based models for complex multivariate forecasting."
+            "Connect live data feeds (like IoT sensors or stock markets) using Apache Kafka.",
+            "Dashboards will update continuously in real time without refreshing."
         ],
-        accent_color=ACCENT_CYAN,
-        title_size=16, body_size=12
+        accent_color=ACCENT_CYAN
     )
 
-    add_card(
+    add_grid_card(
         s8,
-        left=Inches(6.8), top=Inches(1.95), width=Inches(5.7), height=Inches(4.9),
-        title="Business & Industry Impact",
+        left=Inches(6.9), top=Inches(2.2), width=Inches(5.4), height=Inches(2.1),
+        side_heading="2. Cloud Warehouse Connectors",
         points=[
-            "80% Time Reduction: Eliminates days spent manually cleaning spreadsheets and writing repetitive SQL queries.",
-            "Democratic Data Access: Enables non-technical managers and domain experts to explore data independently.",
-            "100% Verified Truth: Eliminates hallucination risks by relying strictly on deterministic SQL mathematics.",
-            "Cost Efficiency: Replaces expensive, rigid proprietary BI software with a modern, flexible AI-driven platform.",
-            "Faster Decision Making: Delivers actionable recommendations within minutes instead of waiting on data teams."
+            "Connect directly to cloud data warehouses like Snowflake and Google BigQuery.",
+            "Enables enterprises to analyze petabytes of company data effortlessly."
         ],
-        accent_color=ACCENT_GREEN,
-        title_size=16, body_size=12
+        accent_color=ACCENT_BLUE
+    )
+
+    add_grid_card(
+        s8,
+        left=Inches(1.0), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="3. Voice-Activated Queries",
+        points=[
+            "Ask questions using voice on mobile devices (e.g. 'Show me today's sales').",
+            "Makes it easy for busy managers to check metrics while traveling."
+        ],
+        accent_color=ACCENT_GREEN
+    )
+
+    add_grid_card(
+        s8,
+        left=Inches(6.9), top=Inches(4.6), width=Inches(5.4), height=Inches(2.1),
+        side_heading="4. Big Time & Cost Savings",
+        points=[
+            "Saves 80% of data cleaning time and cuts reliance on expensive software.",
+            "Helps non-technical teams make smarter decisions based on real data."
+        ],
+        accent_color=ACCENT_CYAN
     )
 
     s8.notes_slide.notes_text_frame.text = (
-        "In the future, we plan to connect with real-time Kafka streams and cloud data warehouses like Snowflake. "
-        "The business impact is huge: it cuts manual data preparation time by 80%, democratizes data access for non-programmers, "
-        "and completely eliminates AI hallucinations in business reporting."
+        "In the future, we plan to connect live streaming data with Apache Kafka, add cloud connections like Snowflake "
+        "and BigQuery, and introduce voice search. InsightX AI cuts 80% of data preparation time and helps anyone "
+        "make data-backed business decisions."
     )
 
     # ==========================================
-    # SLIDE 9: Conclusion & Thank You Slide
+    # SLIDE 9: Thank You (Conclusion & Q&A)
     # ==========================================
     s9 = prs.slides.add_slide(blank_layout)
-    set_slide_bg(s9, BG_DARK)
+    set_background(s9)
 
-    # University Logo
     if os.path.exists(logo_path):
-        s9.shapes.add_picture(logo_path, Inches(0.8), Inches(0.6), height=Inches(0.9))
+        s9.shapes.add_picture(logo_path, Inches(1.0), Inches(0.7), height=Inches(0.95))
 
     # Center Thank You Title
-    t_box9 = s9.shapes.add_textbox(Inches(0.8), Inches(1.8), Inches(11.7), Inches(1.0))
-    p9 = t_box9.text_frame.paragraphs[0]
+    t9 = s9.shapes.add_textbox(Inches(1.0), Inches(1.9), Inches(11.3), Inches(1.0))
+    p9 = t9.text_frame.paragraphs[0]
     p9.text = "Thank You!"
     p9.font.size = Pt(46)
     p9.font.bold = True
     p9.font.color.rgb = ACCENT_CYAN
 
     # Subtitle
-    sub_box9 = s9.shapes.add_textbox(Inches(0.8), Inches(2.8), Inches(11.7), Inches(0.5))
-    p_sub9 = sub_box9.text_frame.paragraphs[0]
-    p_sub9.text = "Questions & Discussion"
-    p_sub9.font.size = Pt(22)
-    p_sub9.font.color.rgb = TEXT_LIGHT
+    sub9 = s9.shapes.add_textbox(Inches(1.0), Inches(2.95), Inches(11.3), Inches(0.5))
+    psub9 = sub9.text_frame.paragraphs[0]
+    psub9.text = "Questions & Discussion"
+    psub9.font.size = Pt(22)
+    psub9.font.color.rgb = TEXT_LIGHT
 
     # Two Cards on Slide 9
-    add_card(
+    add_grid_card(
         s9,
-        left=Inches(0.8), top=Inches(3.7), width=Inches(5.7), height=Inches(3.2),
-        title="Project Summary & Conclusion",
+        left=Inches(1.0), top=Inches(3.8), width=Inches(5.4), height=Inches(2.9),
+        side_heading="Project Conclusion",
         points=[
-            "InsightX AI successfully bridges the gap between raw data and executive decision-making.",
-            "Proven principle: 'Code Computes, AI Explains' guarantees accurate mathematical truth.",
-            "Delivers automated data cleaning, safe natural language querying, and predictive modeling in < 60s.",
-            "Democratizes advanced data science for non-technical business leaders."
+            "InsightX AI makes business data analysis fast, simple, and 100% reliable.",
+            "Principle 'Code Computes, AI Explains' completely prevents AI hallucinations.",
+            "Delivers data cleaning, interactive charts, and ML predictions in < 60 seconds.",
+            "Enables anyone to make smart, data-driven decisions without needing to code."
         ],
-        accent_color=ACCENT_CYAN,
-        title_size=16, body_size=12
+        accent_color=ACCENT_CYAN
     )
 
-    add_card(
+    add_grid_card(
         s9,
-        left=Inches(6.8), top=Inches(3.7), width=Inches(5.7), height=Inches(3.2),
-        title="Author & Academic Credentials",
+        left=Inches(6.9), top=Inches(3.8), width=Inches(5.4), height=Inches(2.9),
+        side_heading="Student & University Info",
         points=[
-            "Author: B. Datta Sai Manikanta",
-            "University Roll No / Reg No: 72311633",
-            "Program: B.Tech Computer Science and Engineering (AI & DS)",
-            "Institution: CT University, Ludhiana (Punjab), India",
-            "Training Partner: DataValley Pvt. Ltd. (In collab with APSCHE)",
+            "Presented By: B. Datta Sai Manikanta",
+            "Registration No: 72311633",
+            "Department: B.Tech CSE (AI & DS)",
+            "College: CT University, Ludhiana (Punjab)",
+            "Industry Partner: DataValley Pvt. Ltd.",
             "GitHub: github.com/bommisettydattasaimanikanta/insightX-ai"
         ],
-        accent_color=ACCENT_BLUE,
-        title_size=16, body_size=12
+        accent_color=ACCENT_BLUE
     )
 
     s9.notes_slide.notes_text_frame.text = (
-        "In conclusion, InsightX AI demonstrates that artificial intelligence can be fast, autonomous, and 100% honest. "
-        "Thank you very much for your time and guidance. I welcome your questions and feedback."
+        "In conclusion, InsightX AI makes data analysis fast, simple, and 100% reliable. "
+        "Thank you very much for your time and guidance. I would be happy to answer any questions you have."
     )
 
     output_pptx = os.path.abspath("InsightX_AI_Project_Presentation.pptx")
     prs.save(output_pptx)
-    print(f"PowerPoint Presentation saved to: {output_pptx}")
+    print(f"Presentation saved to: {output_pptx}")
     return output_pptx
 
 def convert_pptx_to_pdf(pptx_path):
@@ -654,12 +626,12 @@ def convert_pptx_to_pdf(pptx_path):
         pres.SaveAs(pdf_path, 32) # 32 = ppSaveAsPDF
         pres.Close()
         ppt_app.Quit()
-        print(f"PDF Presentation successfully exported to: {pdf_path}")
+        print(f"PDF successfully exported to: {pdf_path}")
         return pdf_path
     except Exception as e:
         print(f"Error converting PPTX to PDF: {e}")
         return None
 
 if __name__ == "__main__":
-    pptx_file = create_presentation()
+    pptx_file = build_clean_presentation()
     convert_pptx_to_pdf(pptx_file)
