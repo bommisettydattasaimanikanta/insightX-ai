@@ -150,6 +150,8 @@ class MLModelRecord(Base):
     
     dataset = relationship("Dataset", back_populates="models")
 
+ModelMetadata = MLModelRecord
+
 class JobRecord(Base):
     __tablename__ = "jobs"
     

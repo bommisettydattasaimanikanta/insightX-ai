@@ -286,21 +286,20 @@ class PipelineService:
                             status="running"
                         )
                     from backend.app.ml.automl import AutoMLTrainer
-                    from backend.app.models.all_models import ModelMetadata
+                    from backend.app.models.all_models import MLModelRecord, ModelMetadata
                     model_save_name = f"automl_{dataset.id}_{suggested_target}.joblib"
                     ml_res = AutoMLTrainer.train_and_evaluate(cleaned_df, suggested_target, model_save_name)
                     
-                    existing_model = db.query(ModelMetadata).filter(
-                        ModelMetadata.dataset_id == dataset.id,
-                        ModelMetadata.target_column == suggested_target
+                    existing_model = db.query(MLModelRecord).filter(
+                        MLModelRecord.dataset_id == dataset.id,
+                        MLModelRecord.target_col == suggested_target
                     ).first()
                     if not existing_model:
-                        existing_model = ModelMetadata(
+                        existing_model = MLModelRecord(
                             dataset_id=dataset.id,
                             name=f"AutoML {suggested_target}",
                             task_type=ml_res["task_type"],
-                            target_column=suggested_target,
-                            feature_names=ml_res.get("feature_names", []),
+                            target_col=suggested_target,
                             algorithm=ml_res.get("best_model", "Random Forest"),
                             metrics_json=ml_res.get("leaderboard", []),
                             feature_importance_json=ml_res.get("feature_importance", []),
