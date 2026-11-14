@@ -1,6 +1,6 @@
 import { useAuthStore } from "../stores/useAuthStore";
 
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = "/api";
 
 export async function apiRequest(endpoint: string, options: RequestInit = {}) {
   // Read token from Zustand auth store or localStorage fallback

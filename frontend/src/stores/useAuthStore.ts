@@ -24,7 +24,7 @@ interface AuthState {
   clearSessionExpiredMessage: () => void;
 }
 
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = "/api";
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   token: localStorage.getItem("token") || null,
